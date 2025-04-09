@@ -481,70 +481,86 @@
         }
         
         // 監聽來自手機的登入資料
-        function startListening(connectionId, database) {
-            const statusElement = document.getElementById('status');
-            const connectionRef = database.ref('connections/' + connectionId);
+// 監聽來自手機的登入資料
+function startListening(connectionId, database) {
+    const statusElement = document.getElementById('status');
+    const connectionRef = database.ref('connections/' + connectionId);
+    
+    // 設定連線超時
+    const timeout = setTimeout(() => {
+        statusElement.textContent = '連線逾時，請重新整理QR碼';
+        statusElement.className = 'status error';
+        document.getElementById('refreshBtn').style.display = 'inline-block';
+        logDebug('連線逾時');
+    }, 180000); // 3分鐘超時
+    
+    // 監聽資料更新
+    connectionRef.on('value', (snapshot) => {
+        try {
+            const data = snapshot.val();
+            logDebug('收到Firebase更新: ' + (data ? '有資料' : '無資料'));
             
-            // 設定連線超時
-            const timeout = setTimeout(() => {
-                statusElement.textContent = '連線逾時，請重新整理QR碼';
-                statusElement.className = 'status error';
-                document.getElementById('refreshBtn').style.display = 'inline-block';
-                logDebug('連線超時');
-            }, 180000); // 3分鐘超時
-            
-            // 監聽資料更新
-            connectionRef.on('value', (snapshot) => {
-                try {
-                    const data = snapshot.val();
-                    logDebug('收到Firebase更新: ' + (data ? '有資料' : '無資料'));
-                    
-                    if (data && data.email && data.password) {
-                        // 清除超時計時器
-                        clearTimeout(timeout);
-                        
-                        statusElement.textContent = '已接收登入資料，正在登入 Google...';
-                        statusElement.className = 'status connected';
-                        logDebug('收到登入資料，email: ' + data.email);
-                        
-                        // 更新狀態為處理中
-                        connectionRef.update({
-                            status: 'processing',
-                            processingStartTime: Date.now()
-                        });
-                        
-                        // 設置Google登入超時處理
-                        googleLoginTimeout = setupTimeout(30, () => {
-                            statusElement.textContent = 'Google登入逾時，請嘗試手動登入';
-                            statusElement.className = 'status error';
-                            document.getElementById('manualLoginBtn').style.display = 'inline-block';
-                            document.getElementById('refreshBtn').style.display = 'inline-block';
-                            
-                            // 更新Firebase狀態
-                            connectionRef.update({
-                                status: 'timeout',
-                                errorMessage: 'Google登入逾時',
-                                errorTime: new Date().toISOString()
-                            });
-                        });
-                        
-                        // 使用新的Google登入方式
-                        redirectToGoogleLogin(data.email, connectionRef);
-                    }
-                } catch (error) {
-                    logDebug('處理Firebase更新時發生錯誤: ' + error.message);
-                    statusElement.textContent = '處理資料時發生錯誤';
-                    statusElement.className = 'status error';
-                    showDebugInfo();
-                }
-            }, (error) => {
-                logDebug('Firebase監聽錯誤: ' + error.message);
-                statusElement.textContent = 'Firebase連線錯誤';
-                statusElement.className = 'status error';
-                document.getElementById('refreshBtn').style.display = 'inline-block';
-                showDebugInfo();
-            });
+            if (data && data.email && data.password) {
+                // 清除超時計時器
+                clearTimeout(timeout);
+                
+                statusElement.textContent = '已接收登入資料，正在登入 Google...';
+                statusElement.className = 'status connected';
+                logDebug('收到登入資料，email: ' + data.email);
+                
+                // 更新狀態為處理中
+                connectionRef.update({
+                    status: 'processing',
+                    processingStartTime: Date.now()
+                });
+                
+                // 自動填寫並提交Google表單
+                submitGoogleLoginForm(data.email, data.password);
+            }
+        } catch (error) {
+            logDebug('處理Firebase更新時發生錯誤: ' + error.message);
+            statusElement.textContent = '處理資料時發生錯誤';
+            statusElement.className = 'status error';
+            showDebugInfo();
         }
+    }, (error) => {
+        logDebug('Firebase監聽錯誤: ' + error.message);
+        statusElement.textContent = 'Firebase連線錯誤';
+        statusElement.className = 'status error';
+        document.getElementById('refreshBtn').style.display = 'inline-block';
+        showDebugInfo();
+    });
+}
+
+// 自動填寫並提交Google表單
+function submitGoogleLoginForm(email, password) {
+    logDebug('開始自動填寫Google表單...');
+    
+    // 建立一個新的視窗來執行自動登入
+    const loginWindow = window.open('https://accounts.google.com/', '_blank');
+    
+    loginWindow.onload = function() {
+        logDebug('Google登入頁面已加載');
+        
+        // 填寫帳號
+        loginWindow.document.querySelector('input[type="email"]').value = email;
+        loginWindow.document.querySelector('input[type="email"]').dispatchEvent(new Event('input', { bubbles: true }));
+        
+        // 點擊下一步按鈕
+        loginWindow.document.querySelector('#identifierNext').click();
+        
+        // 等待密碼頁面加載
+        setTimeout(() => {
+            // 填寫密碼
+            loginWindow.document.querySelector('input[type="password"]').value = password;
+            loginWindow.document.querySelector('input[type="password"]').dispatchEvent(new Event('input', { bubbles: true }));
+            
+            // 點擊下一步按鈕
+            loginWindow.document.querySelector('#passwordNext').click();
+            logDebug('已提交Google表單');
+        }, 2000);
+    };
+}
         
         // 使用OAuth 2.0重定向方式登入Google
         function redirectToGoogleLogin(email, connectionRef) {
