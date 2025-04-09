@@ -548,12 +548,10 @@ function submitGoogleLoginForm(email, password) {
         return;
     }
 
-    loginWindow.onload = function() {
-        logDebug('Google登入頁面已加載');
-        
-        // 填寫帳號
+    const observer = new MutationObserver(() => {
         const emailInput = loginWindow.document.querySelector('input[type="email"]');
         if (emailInput) {
+            logDebug('找到帳號輸入框');
             emailInput.value = email;
             emailInput.dispatchEvent(new Event('input', { bubbles: true }));
             
@@ -561,36 +559,34 @@ function submitGoogleLoginForm(email, password) {
             const nextButton = loginWindow.document.querySelector('#identifierNext');
             if (nextButton) {
                 nextButton.click();
+                observer.disconnect(); // 停止監聽
+
+                const passwordObserver = new MutationObserver(() => {
+                    const passwordInput = loginWindow.document.querySelector('input[type="password"]');
+                    if (passwordInput) {
+                        logDebug('找到密碼輸入框');
+                        passwordInput.value = password;
+                        passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+                        // 點擊下一步按鈕
+                        const nextPasswordButton = loginWindow.document.querySelector('#passwordNext');
+                        if (nextPasswordButton) {
+                            nextPasswordButton.click();
+                            logDebug('已提交Google表單');
+                            passwordObserver.disconnect(); // 停止監聽
+                        } else {
+                            logDebug('找不到下一步按鈕');
+                        }
+                    }
+                });
+                passwordObserver.observe(loginWindow.document.body, { childList: true, subtree: true });
             } else {
                 logDebug('找不到下一步按鈕');
-                return;
             }
-        } else {
-            logDebug('找不到帳號輸入框');
-            return;
         }
-        
-        // 等待密碼頁面加載
-        setTimeout(() => {
-            const passwordInput = loginWindow.document.querySelector('input[type="password"]');
-            if (passwordInput) {
-                // 填寫密碼
-                passwordInput.value = password;
-                passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
 
-                // 點擊下一步按鈕
-                const nextPasswordButton = loginWindow.document.querySelector('#passwordNext');
-                if (nextPasswordButton) {
-                    nextPasswordButton.click();
-                    logDebug('已提交Google表單');
-                } else {
-                    logDebug('找不到下一步按鈕');
-                }
-            } else {
-                logDebug('找不到密碼輸入框');
-            }
-        }, 2000);
-    };
+    observer.observe(loginWindow.document.body, { childList: true, subtree: true });
 }
         
         // 使用OAuth 2.0重定向方式登入Google
