@@ -179,7 +179,7 @@ function googleSignIn(email, connectionRef) {
     // 等待 Google API 載入
     gapi.load('auth2', () => {
         gapi.auth2.init({
-            client_id: 'YOUR_CLIENT_ID.apps.googleusercontent.com',
+            client_id: '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com',
             scope: 'profile email https://www.googleapis.com/auth/drive.readonly'
         }).then(() => {
             // 嘗試自動登入，使用者需要在彈出視窗中確認
