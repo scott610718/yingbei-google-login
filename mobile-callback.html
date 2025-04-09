@@ -75,15 +75,18 @@
             })
             .then(response => response.json())
             .then(userData => {
-                // 將訪問令牌發送到 Firebase
-                const connectionRef = database.ref('connections/' + connectionId);
-                connectionRef.update({
-                    access_token: accessToken,
-                    user_email: userData.email,
-                    user_name: userData.name,
-                    status: 'authenticated',
-                    authentication_time: Date.now()
-                });
+            // 將訪問令牌發送到 Firebase
+            const connectionRef = database.ref('connections/' + connectionId);
+            connectionRef.update({
+                access_token: accessToken,
+                user_email: userData.email,
+                user_name: userData.name,
+                user_picture: userData.picture, // 可選: 添加用戶頭像
+                status: 'authenticated',
+                authentication_time: Date.now(),
+                token_type: params.get('token_type') || 'Bearer',
+                expires_in: params.get('expires_in') || '3600'
+            });
                 
                 messageElement.textContent = '授權成功！請返回到桌面端查看。';
                 messageElement.className = 'message success';
