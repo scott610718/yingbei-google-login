@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>營北國中自動登入GOOGLE系統</title>
+    <!-- 引入Firebase SDK -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-database-compat.min.js"></script>
+    <!-- QR Code 生成庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js"></script>
+    <!-- Google Sign-In API -->
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <meta name="google-signin-client_id" content="130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        h1 {
+            color: #4285F4;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        .qr-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        #qrcode {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            min-height: 200px; /* 確保即使QR碼未加載有足夠空間 */
+            min-width: 200px;
+        }
+        .instructions {
+            background-color: #e8f0fe;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+        .instructions h2 {
+            color: #4285F4;
+            margin-top: 0;
+        }
+        .instructions ol {
+            margin-left: 20px;
+            padding-left: 0;
+        }
+        .instructions li {
+            margin-bottom: 10px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .waiting {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .google-logo {
+            width: 100px;
+            margin-bottom: 20px;
+        }
+        .school-logo {
+            width: 80px;
+            margin-bottom: 10px;
+        }
+        .footer {
+            margin-top: 30px;
+            color: #666;
+            font-size: 14px;
+        }
+        #refreshBtn {
+            background-color: #f1f1f1;
+            color: #333;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            display: none;
+            margin-top: 15px;
+        }
+        .debug-info {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #666;
+            text-align: left;
+            display: none; /* 預設隱藏，僅用於調試 */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTEyIDIxLjM1bC0xLjQ1LTEuMzJDNS40IDE1LjM2IDIgMTIuMjggMiA4LjUgMiA1LjQyIDQuNDIgMyA3LjUgM2MxLjc0IDAgMy40MS44MSA0LjUgMi4wOUMxMy4wOSAzLjgxIDE0Ljc2IDMgMTYuNSAzIDE5LjU4IDMgMjIgNS40MiAyMiA4LjVjMCAzLjc4LTMuNCA2Ljg2LTguNTUgMTEuNTRMMTIgMjEuMzV6IiBmaWxsPSIjRjQ0MzM2Ii8+PC9zdmc+" alt="營北國中" class="school-logo">
+        <h1>營北國中自動登入GOOGLE系統</h1>
+        
+        <div class="instructions">
+            <h2>使用說明</h2>
+            <ol>
+                <li>請使用手機開啟營北國中Google登入手機應用程式</li>
+                <li>在手機上輸入並儲存您的Google帳號與密碼</li>
+                <li>點擊「掃描 QR Code」按鈕</li>
+                <li>掃描下方的 QR Code</li>
+                <li>掃描成功後，系統將自動為您登入Google</li>
+            </ol>
+        </div>
+
+        <div class="qr-container">
+            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNTAgMTUwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9Im5vbnplcm8iPjxwYXRoIGZpbGw9IiNFQTQzMzUiIGQ9Ik0xMjAgNzYuMWMwLTMuMS0uMy01LjMtLjgtNy42SDc2LjF2MTQuNGgzMS45Yy0xLjQgNy42LTUuNiAxNC0xMS45IDE4LjN2MTUuMmgxOS4zYzExLjMtMTAuNCAxNy44LTI1LjcgMTcuOC00MC4zeiIvPjxwYXRoIGZpbGw9IiM0Mjg1RjQiIGQ9Ik03Ni4xIDEyMGMxNi4xIDAgMjkuNi01LjIgMzkuNC0xNC4xbC0xOS4zLTE1LjJjLTUuMyAzLjYtMTIuMSA1LjYtMjAuMSA1LjYtMTUuNSAwLTI4LjYtMTAuNS0zMy4zLTI0LjVIMjIuN3YxNS43YzkuNyAxOS4zIDI5LjEgMzIuNSA1My40IDMyLjV6Ii8+PHBhdGggZmlsbD0iI0ZCQkMwNSIgZD0iTTQyLjggNzEuOGMtMS4yLTMuNi0xLjgtNy41LTEuOC0xMS40IDAtMy45LjctNy44IDEuOC0xMS40VjMzLjNIMjIuN2MtNC44IDkuNS03LjUgMjAuMi03LjUgMzEuNiAwIDExLjMgMi43IDIyLjEgNy41IDMxLjZsMjAuMS0xNS43eiIvPjxwYXRoIGZpbGw9IiMzNEE4NTMiIGQ9Ik03Ni4xIDQzLjRjOC43IDAgMTYuNCAzLjEgMjIuNiA5LjFsMTcuMi0xNy4yQzEwNS4zIDI2LjEgOTEuOCAxOSA3Ni4xIDE5Yy0yNC4zIDAtNDUuNyAxMy4yLTU1LjQgMzIuM2wyMC4xIDE1LjdjNC43LTE0IDEyLjgtMjkuNiAyOC4zLTI5LjZ6Ii8+PC9nPjwvc3ZnPg==" alt="Google" class="google-logo">
+            <div id="qrcode"></div>
+            <div id="status" class="status waiting">等待手機掃描...</div>
+            <button id="refreshBtn">重新產生QR碼</button>
+        </div>
+        
+        <div class="footer">
+            © 營北國中 - 由校內資訊組維護
+        </div>
+        
+        <!-- 調試信息區域 -->
+        <div id="debugInfo" class="debug-info"></div>
+    </div>
+
+    <script>
+        // 調試信息函數
+        function logDebug(message) {
+            console.log(message);
+            const debugElement = document.getElementById('debugInfo');
+            if (debugElement) {
+                const timestamp = new Date().toLocaleTimeString();
+                debugElement.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            }
+        }
+        
+        // 顯示調試信息
+        function showDebugInfo() {
+            document.getElementById('debugInfo').style.display = 'block';
+        }
+        
+        // 檢查QRCode庫是否正確載入
+        function checkQRCodeLibrary() {
+            if (typeof QRCode === 'undefined') {
+                logDebug('錯誤: QRCode 庫未正確載入');
+                document.getElementById('status').textContent = 'QR Code 庫載入失敗';
+                document.getElementById('status').className = 'status error';
+                return false;
+            }
+            logDebug('QRCode 庫已成功載入');
+            return true;
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            logDebug('DOM 已載入，開始初始化...');
+            
+            // 檢查QRCode庫
+            if (!checkQRCodeLibrary()) {
+                showDebugInfo();
+                return;
+            }
+            
+            // Firebase 設定 - 使用與mobile.html相同的配置
+            const firebaseConfig = {
+                apiKey: "AIzaSyArF8xncLwA3osSQ_o6yWIyuOc0TMrXRTY",
+                authDomain: "yingpei--login.firebaseapp.com",
+                databaseURL: "https://yingpei--login-default-rtdb.firebaseio.com",
+                projectId: "yingpei--login",
+                storageBucket: "yingpei--login.firebasestorage.app",
+                messagingSenderId: "261477282402",
+                appId: "1:261477282402:web:557f0be058e07cd642173b",
+                measurementId: "G-EB9PR17TJL"
+            };
+            
+            try {
+                // 初始化 Firebase
+                logDebug('初始化 Firebase...');
+                firebase.initializeApp(firebaseConfig);
+                const database = firebase.database();
+                logDebug('Firebase 初始化成功');
+                
+                // 產生連線 ID
+                let connectionId = generateConnectionId();
+                logDebug('生成連接ID: ' + connectionId);
+                
+                // 產生 QR 碼
+                try {
+                    generateQRCode(connectionId);
+                    logDebug('QR Code 生成完成');
+                } catch (qrError) {
+                    logDebug('QR Code 生成錯誤: ' + qrError.message);
+                    showDebugInfo();
+                }
+                
+                // 監聽 Firebase 資料庫更新
+                try {
+                    startListening(connectionId, database);
+                    logDebug('Firebase 監聽器已啟動');
+                } catch (listenError) {
+                    logDebug('Firebase 監聽錯誤: ' + listenError.message);
+                    showDebugInfo();
+                }
+                
+                // 重新整理按鈕事件
+                document.getElementById('refreshBtn').addEventListener('click', () => {
+                    logDebug('點擊重新整理按鈕');
+                    
+                    // 移除舊的監聽器
+                    try {
+                        database.ref('connections/' + connectionId).off();
+                        logDebug('移除舊的監聽器');
+                    } catch (e) {
+                        logDebug('移除監聽器錯誤: ' + e.message);
+                    }
+                    
+                    // 產生新的連線 ID
+                    connectionId = generateConnectionId();
+                    logDebug('生成新連接ID: ' + connectionId);
+                    
+                    // 生成新的 QR 碼
+                    try {
+                        document.getElementById('qrcode').innerHTML = '';
+                        generateQRCode(connectionId);
+                        logDebug('新QR Code已生成');
+                    } catch (qrError) {
+                        logDebug('新QR Code生成錯誤: ' + qrError.message);
+                        showDebugInfo();
+                    }
+                    
+                    // 重新開始監聽
+                    try {
+                        startListening(connectionId, database);
+                        logDebug('重新開始監聽Firebase');
+                    } catch (listenError) {
+                        logDebug('重新監聽錯誤: ' + listenError.message);
+                        showDebugInfo();
+                    }
+                    
+                    // 更新狀態
+                    const statusElement = document.getElementById('status');
+                    statusElement.textContent = '等待手機掃描...';
+                    statusElement.className = 'status waiting';
+                    
+                    // 隱藏重新整理按鈕
+                    document.getElementById('refreshBtn').style.display = 'none';
+                });
+                
+            } catch (error) {
+                logDebug('初始化錯誤: ' + error.message);
+                document.getElementById('status').textContent = '系統初始化失敗，請刷新頁面';
+                document.getElementById('status').className = 'status error';
+                showDebugInfo();
+            }
+        });
+        
+        // 產生連線 ID
+        function generateConnectionId() {
+            return 'conn-' + Math.random().toString(36).substring(2, 10);
+        }
+        
+        // 產生 QR 碼
+        function generateQRCode(connectionId) {
+            // 確保QR碼容器存在
+            const qrcodeElement = document.getElementById("qrcode");
+            if (!qrcodeElement) {
+                throw new Error("找不到QR碼容器元素");
+            }
+            
+            // 清空舊的QR碼
+            qrcodeElement.innerHTML = '';
+            
+            // 使用純JavaScript創建QR碼
+            new QRCode(qrcodeElement, {
+                text: connectionId,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+            
+            // 檢查是否生成成功
+            setTimeout(() => {
+                if (qrcodeElement.children.length === 0) {
+                    logDebug('QR碼生成失敗，容器沒有子元素');
+                    // 手動創建一個臨時QR碼作為備份
+                    qrcodeElement.innerHTML = `
+                        <div style="text-align:center;padding:10px;">
+                            <p>連接ID: ${connectionId}</p>
+                            <div style="border:1px solid #000;padding:5px;margin:10px auto;width:150px;height:150px;display:flex;align-items:center;justify-content:center;">
+                                QR碼生成中...
+                            </div>
+                        </div>
+                    `;
+                    showDebugInfo();
+                } else {
+                    logDebug('QR碼成功生成，子元素數: ' + qrcodeElement.children.length);
+                }
+            }, 500);
+        }
+        
+        // 監聽來自手機的登入資料
+        function startListening(connectionId, database) {
+            const statusElement = document.getElementById('status');
+            const connectionRef = database.ref('connections/' + connectionId);
+            
+            // 設定連線超時
+            const timeout = setTimeout(() => {
+                statusElement.textContent = '連線逾時，請重新整理QR碼';
+                statusElement.className = 'status error';
+                document.getElementById('refreshBtn').style.display = 'inline-block';
+                logDebug('連線超時');
+            }, 180000); // 3分鐘超時
+            
+            // 監聽資料更新
+            connectionRef.on('value', (snapshot) => {
+                try {
+                    const data = snapshot.val();
+                    logDebug('收到Firebase更新: ' + (data ? '有資料' : '無資料'));
+                    
+                    if (data && data.email && data.password) {
+                        // 清除超時計時器
+                        clearTimeout(timeout);
+                        
+                        statusElement.textContent = '已接收登入資料，正在登入 Google...';
+                        statusElement.className = 'status connected';
+                        logDebug('收到登入資料，email: ' + data.email);
+                        
+                        // 更新狀態為處理中
+                        connectionRef.update({
+                            status: 'processing',
+                            processingStartTime: Date.now()
+                        });
+                        
+                        // 使用 Google OAuth 2.0 登入
+                        googleSignIn(data.email, connectionRef);
+                    }
+                } catch (error) {
+                    logDebug('處理Firebase更新時發生錯誤: ' + error.message);
+                    statusElement.textContent = '處理資料時發生錯誤';
+                    statusElement.className = 'status error';
+                    showDebugInfo();
+                }
+            }, (error) => {
+                logDebug('Firebase監聽錯誤: ' + error.message);
+                statusElement.textContent = 'Firebase連線錯誤';
+                statusElement.className = 'status error';
+                document.getElementById('refreshBtn').style.display = 'inline-block';
+                showDebugInfo();
+            });
+        }
+        
+        // 使用 Google OAuth 2.0 登入
+        function googleSignIn(email, connectionRef) {
+            const statusElement = document.getElementById('status');
+            
+            logDebug('開始Google登入流程...');
+            
+            // 檢查 Google API 是否存在
+            if (typeof gapi === 'undefined') {
+                logDebug('錯誤: Google API (gapi) 未載入');
+                statusElement.textContent = 'Google API 未載入，請重新整理頁面';
+                statusElement.className = 'status error';
+                connectionRef.update({
+                    status: 'error',
+                    errorMessage: 'Google API未載入',
+                    errorTime: new Date().toISOString()
+                });
+                document.getElementById('refreshBtn').style.display = 'inline-block';
+                showDebugInfo();
+                return;
+            }
+            
+            // 等待 Google API 載入
+            gapi.load('auth2', () => {
+                logDebug('Google Auth2 API 載入完成');
+                
+                // 初始化 Google Auth
+                try {
+                    gapi.auth2.init({
+                        client_id: '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com',
+                        scope: 'profile email https://www.googleapis.com/auth/drive.readonly'
+                    }).then(() => {
+                        logDebug('Google Auth2 初始化成功');
+                        
+                        // 嘗試自動登入，使用者需要在彈出視窗中確認
+                        const auth2 = gapi.auth2.getAuthInstance();
+                        
+                        // 預填 email
+                        const options = {
+                            prompt: 'select_account',
+                            login_hint: email
+                        };
+                        
+                        logDebug('嘗試進行Google登入...');
+                        
+                        auth2.signIn(options).then(
+                            (googleUser) => {
+                                // 登入成功
+                                const profile = googleUser.getBasicProfile();
+                                statusElement.textContent = `登入成功！歡迎 ${profile.getName()}`;
+                                statusElement.className = 'status connected';
+                                logDebug('Google登入成功: ' + profile.getName());
+                                
+                                // 獲取OAuth Token (可用於後續API呼叫)
+                                const authResponse = googleUser.getAuthResponse();
+                                const token = authResponse.access_token;
+                                const expiresAt = authResponse.expires_at;
+                                
+                                // 更新Firebase狀態，但不包含token (避免安全風險)
+                                connectionRef.update({
+                                    status: 'success',
+                                    loggedInUser: profile.getName(),
+                                    loggedInEmail: profile.getEmail(),
+                                    profileImageUrl: profile.getImageUrl(),
+                                    loggedInTime: new Date().toISOString(),
+                                    redirectUrl: 'https://www.google.com',
+                                    tokenExpiresAt: expiresAt
+                                });
+                                
+                                // 延遲後重定向到 Google 服務
+                                setTimeout(() => {
+                                    window.location.href = 'https://www.google.com';
+                                }, 3000);
+                            },
+                            (error) => {
+                                // 登入失敗
+                                statusElement.textContent = '登入失敗，請重試';
+                                statusElement.className = 'status error';
+                                logDebug('Google登入失敗: ' + JSON.stringify(error));
+                                
+                                // 更新Firebase狀態
+                                connectionRef.update({
+                                    status: 'error',
+                                    errorMessage: error.error || '登入過程中發生錯誤',
+                                    errorTime: new Date().toISOString()
+                                });
+                                
+                                // 顯示重新整理按鈕
+                                document.getElementById('refreshBtn').style.display = 'inline-block';
+                                showDebugInfo();
+                            }
+                        );
+                    }).catch(error => {
+                        // Google API 初始化失敗
+                        statusElement.textContent = '無法初始化Google登入，請檢查網路連線';
+                        statusElement.className = 'status error';
+                        logDebug('Google API初始化失敗: ' + error.message);
+                        
+                        // 更新Firebase狀態
+                        connectionRef.update({
+                            status: 'error',
+                            errorMessage: 'Google API初始化失敗',
+                            errorTime: new Date().toISOString()
+                        });
+                        
+                        // 顯示重新整理按鈕
+                        document.getElementById('refreshBtn').style.display = 'inline-block';
+                        showDebugInfo();
+                    });
+                } catch (error) {
+                    logDebug('初始化Google Auth2時發生錯誤: ' + error.message);
+                    statusElement.textContent = 'Google登入初始化失敗';
+                    statusElement.className = 'status error';
+                    showDebugInfo();
+                }
+            }, (error) => {
+                logDebug('載入Google Auth2時發生錯誤: ' + error);
+                statusElement.textContent = '無法載入Google登入服務';
+                statusElement.className = 'status error';
+                document.getElementById('refreshBtn').style.display = 'inline-block';
+                showDebugInfo();
+            });
+        }
+        
+        // 添加一個按鈕在頁面底部，用於顯示調試信息
+        document.addEventListener('keydown', function(event) {
+            // 按Ctrl+D顯示調試信息
+            if (event.ctrlKey && event.key === 'd') {
+                showDebugInfo();
+                logDebug('已手動顯示調試信息');
+            }
+        });
+    </script>
+</body>
+</html>
