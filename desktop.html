@@ -575,7 +575,7 @@
                 logDebug('重定向到Google登入頁面: ' + authUrl.toString());
                 
                 // 重定向到Google登入頁面
-                window.location.href = authUrl.toString();
+                window.open(authUrl.toString(), '_blank');
                 
             } catch (error) {
                 logDebug('重定向到Google登入頁面時出錯: ' + error.message);
