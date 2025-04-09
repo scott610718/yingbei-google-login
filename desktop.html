@@ -8,10 +8,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-app-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-database-compat.min.js"></script>
     <!-- QR Code 生成庫 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- Google Sign-In API -->
-    <script src="https://apis.google.com/js/platform.js" async defer></script>
-    <meta name="google-signin-client_id" content="130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -112,6 +111,17 @@
             display: none;
             margin-top: 15px;
         }
+        #manualLoginBtn {
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 15px;
+            display: none;
+        }
         .debug-info {
             margin-top: 20px;
             padding: 10px;
@@ -145,7 +155,11 @@
             <div id="qrcode"></div>
             <div id="status" class="status waiting">等待手機掃描...</div>
             <button id="refreshBtn">重新產生QR碼</button>
+            <button id="manualLoginBtn">直接登入Google</button>
         </div>
+        
+        <!-- Google登入按鈕容器 -->
+        <div id="googleButtonContainer"></div>
         
         <div class="footer">
             © 營北國中 - 由校內資訊組維護
@@ -171,6 +185,14 @@
             document.getElementById('debugInfo').style.display = 'block';
         }
         
+        // 設置超時處理函數
+        function setupTimeout(seconds, callback) {
+            return setTimeout(() => {
+                logDebug(`操作超時 (${seconds}秒)`);
+                callback();
+            }, seconds * 1000);
+        }
+        
         // 檢查QRCode庫是否正確載入
         function checkQRCodeLibrary() {
             if (typeof QRCode === 'undefined') {
@@ -183,8 +205,49 @@
             return true;
         }
         
+        // 全局變數
+        let currentConnectionId = '';
+        let currentDatabase = null;
+        let googleClientId = '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com';
+        let googleLoginTimeout = null;
+        
         document.addEventListener('DOMContentLoaded', () => {
             logDebug('DOM 已載入，開始初始化...');
+            
+            // 確保QRCode腳本已加載完成
+            if (typeof QRCode === 'undefined') {
+                logDebug('QRCode庫未加載，嘗試手動加載');
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+                script.onload = initializeApp;
+                script.onerror = () => {
+                    logDebug('QRCode庫加載失敗');
+                    document.getElementById('status').textContent = 'QR Code 庫載入失敗';
+                    document.getElementById('status').className = 'status error';
+                    showDebugInfo();
+                };
+                document.head.appendChild(script);
+            } else {
+                initializeApp();
+            }
+            
+            // 設置手動登入按鈕事件
+            document.getElementById('manualLoginBtn').addEventListener('click', () => {
+                logDebug('點擊手動登入按鈕');
+                window.location.href = `https://accounts.google.com/o/oauth2/auth?client_id=${googleClientId}&redirect_uri=${encodeURIComponent(window.location.origin + window.location.pathname)}&response_type=token&scope=email%20profile%20https://www.googleapis.com/auth/drive.readonly&prompt=select_account`;
+            });
+        });
+        
+        function initializeApp() {
+            logDebug('開始初始化應用程序');
+            
+            // 檢查URL中是否有OAuth回傳的token
+            const hash = window.location.hash;
+            if (hash && hash.includes('access_token')) {
+                logDebug('檢測到OAuth回傳，處理登入結果');
+                handleOAuthResponse(hash);
+                return;
+            }
             
             // 檢查QRCode庫
             if (!checkQRCodeLibrary()) {
@@ -192,7 +255,7 @@
                 return;
             }
             
-            // Firebase 設定 - 使用與mobile.html相同的配置
+            // Firebase 設定
             const firebaseConfig = {
                 apiKey: "AIzaSyArF8xncLwA3osSQ_o6yWIyuOc0TMrXRTY",
                 authDomain: "yingpei--login.firebaseapp.com",
@@ -209,15 +272,16 @@
                 logDebug('初始化 Firebase...');
                 firebase.initializeApp(firebaseConfig);
                 const database = firebase.database();
+                currentDatabase = database;
                 logDebug('Firebase 初始化成功');
                 
                 // 產生連線 ID
-                let connectionId = generateConnectionId();
-                logDebug('生成連接ID: ' + connectionId);
+                currentConnectionId = generateConnectionId();
+                logDebug('生成連接ID: ' + currentConnectionId);
                 
                 // 產生 QR 碼
                 try {
-                    generateQRCode(connectionId);
+                    generateQRCode(currentConnectionId);
                     logDebug('QR Code 生成完成');
                 } catch (qrError) {
                     logDebug('QR Code 生成錯誤: ' + qrError.message);
@@ -226,7 +290,7 @@
                 
                 // 監聽 Firebase 資料庫更新
                 try {
-                    startListening(connectionId, database);
+                    startListening(currentConnectionId, database);
                     logDebug('Firebase 監聽器已啟動');
                 } catch (listenError) {
                     logDebug('Firebase 監聽錯誤: ' + listenError.message);
@@ -234,48 +298,7 @@
                 }
                 
                 // 重新整理按鈕事件
-                document.getElementById('refreshBtn').addEventListener('click', () => {
-                    logDebug('點擊重新整理按鈕');
-                    
-                    // 移除舊的監聽器
-                    try {
-                        database.ref('connections/' + connectionId).off();
-                        logDebug('移除舊的監聽器');
-                    } catch (e) {
-                        logDebug('移除監聽器錯誤: ' + e.message);
-                    }
-                    
-                    // 產生新的連線 ID
-                    connectionId = generateConnectionId();
-                    logDebug('生成新連接ID: ' + connectionId);
-                    
-                    // 生成新的 QR 碼
-                    try {
-                        document.getElementById('qrcode').innerHTML = '';
-                        generateQRCode(connectionId);
-                        logDebug('新QR Code已生成');
-                    } catch (qrError) {
-                        logDebug('新QR Code生成錯誤: ' + qrError.message);
-                        showDebugInfo();
-                    }
-                    
-                    // 重新開始監聽
-                    try {
-                        startListening(connectionId, database);
-                        logDebug('重新開始監聽Firebase');
-                    } catch (listenError) {
-                        logDebug('重新監聽錯誤: ' + listenError.message);
-                        showDebugInfo();
-                    }
-                    
-                    // 更新狀態
-                    const statusElement = document.getElementById('status');
-                    statusElement.textContent = '等待手機掃描...';
-                    statusElement.className = 'status waiting';
-                    
-                    // 隱藏重新整理按鈕
-                    document.getElementById('refreshBtn').style.display = 'none';
-                });
+                document.getElementById('refreshBtn').addEventListener('click', refreshConnection);
                 
             } catch (error) {
                 logDebug('初始化錯誤: ' + error.message);
@@ -283,7 +306,115 @@
                 document.getElementById('status').className = 'status error';
                 showDebugInfo();
             }
-        });
+        }
+        
+        // 處理OAuth回傳
+        function handleOAuthResponse(hash) {
+            try {
+                const params = new URLSearchParams(hash.substring(1));
+                const accessToken = params.get('access_token');
+                
+                if (accessToken) {
+                    logDebug('成功獲取OAuth令牌');
+                    
+                    // 使用令牌獲取用戶信息
+                    fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        logDebug('成功獲取用戶資料: ' + data.name);
+                        
+                        const statusElement = document.getElementById('status');
+                        statusElement.textContent = `登入成功！歡迎 ${data.name}`;
+                        statusElement.className = 'status connected';
+                        
+                        // 清除URL中的hash參數
+                        window.history.replaceState(null, null, window.location.pathname);
+                        
+                        // 延遲後重定向到 Google 服務
+                        setTimeout(() => {
+                            window.location.href = 'https://www.google.com';
+                        }, 3000);
+                    })
+                    .catch(error => {
+                        logDebug('獲取用戶資料失敗: ' + error.message);
+                        document.getElementById('status').textContent = '登入後無法獲取用戶資料';
+                        document.getElementById('status').className = 'status error';
+                        showDebugInfo();
+                    });
+                } else {
+                    logDebug('OAuth回傳中無令牌');
+                    document.getElementById('status').textContent = '登入失敗，請重試';
+                    document.getElementById('status').className = 'status error';
+                    showDebugInfo();
+                }
+            } catch (error) {
+                logDebug('處理OAuth回傳錯誤: ' + error.message);
+                document.getElementById('status').textContent = '處理登入回傳時發生錯誤';
+                document.getElementById('status').className = 'status error';
+                showDebugInfo();
+            }
+        }
+        
+        // 刷新連接
+        function refreshConnection() {
+            logDebug('刷新連接');
+            
+            if (currentDatabase) {
+                // 移除舊的監聽器
+                try {
+                    currentDatabase.ref('connections/' + currentConnectionId).off();
+                    logDebug('移除舊的監聽器');
+                } catch (e) {
+                    logDebug('移除監聽器錯誤: ' + e.message);
+                }
+                
+                // 產生新的連線 ID
+                currentConnectionId = generateConnectionId();
+                logDebug('生成新連接ID: ' + currentConnectionId);
+                
+                // 清除可能的超時
+                if (googleLoginTimeout) {
+                    clearTimeout(googleLoginTimeout);
+                    googleLoginTimeout = null;
+                }
+                
+                // 生成新的 QR 碼
+                try {
+                    document.getElementById('qrcode').innerHTML = '';
+                    generateQRCode(currentConnectionId);
+                    logDebug('新QR Code已生成');
+                } catch (qrError) {
+                    logDebug('新QR Code生成錯誤: ' + qrError.message);
+                    showDebugInfo();
+                }
+                
+                // 重新開始監聽
+                try {
+                    startListening(currentConnectionId, currentDatabase);
+                    logDebug('重新開始監聽Firebase');
+                } catch (listenError) {
+                    logDebug('重新監聽錯誤: ' + listenError.message);
+                    showDebugInfo();
+                }
+                
+                // 更新狀態
+                const statusElement = document.getElementById('status');
+                statusElement.textContent = '等待手機掃描...';
+                statusElement.className = 'status waiting';
+                
+                // 隱藏按鈕
+                document.getElementById('refreshBtn').style.display = 'none';
+                document.getElementById('manualLoginBtn').style.display = 'none';
+            } else {
+                logDebug('無法刷新連接：資料庫未初始化');
+                // 重新加載頁面
+                window.location.reload();
+            }
+        }
         
         // 產生連線 ID
         function generateConnectionId() {
@@ -301,34 +432,52 @@
             // 清空舊的QR碼
             qrcodeElement.innerHTML = '';
             
-            // 使用純JavaScript創建QR碼
-            new QRCode(qrcodeElement, {
-                text: connectionId,
-                width: 200,
-                height: 200,
-                colorDark: "#000000",
-                colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.H
-            });
-            
-            // 檢查是否生成成功
-            setTimeout(() => {
-                if (qrcodeElement.children.length === 0) {
-                    logDebug('QR碼生成失敗，容器沒有子元素');
-                    // 手動創建一個臨時QR碼作為備份
-                    qrcodeElement.innerHTML = `
-                        <div style="text-align:center;padding:10px;">
-                            <p>連接ID: ${connectionId}</p>
-                            <div style="border:1px solid #000;padding:5px;margin:10px auto;width:150px;height:150px;display:flex;align-items:center;justify-content:center;">
-                                QR碼生成中...
-                            </div>
-                        </div>
-                    `;
-                    showDebugInfo();
-                } else {
-                    logDebug('QR碼成功生成，子元素數: ' + qrcodeElement.children.length);
+            try {
+                // 使用純JavaScript創建QR碼，確保QRCode存在
+                if (typeof QRCode === 'undefined') {
+                    throw new Error("QRCode庫尚未加載");
                 }
-            }, 500);
+                
+                new QRCode(qrcodeElement, {
+                    text: connectionId,
+                    width: 200,
+                    height: 200,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+                
+                // 檢查是否生成成功
+                setTimeout(() => {
+                    if (qrcodeElement.children.length === 0) {
+                        logDebug('QR碼生成失敗，容器沒有子元素');
+                        // 手動創建一個臨時QR碼作為備份
+                        qrcodeElement.innerHTML = `
+                            <div style="text-align:center;padding:10px;">
+                                <p>連接ID: ${connectionId}</p>
+                                <div style="border:1px solid #000;padding:5px;margin:10px auto;width:150px;height:150px;display:flex;align-items:center;justify-content:center;">
+                                    QR碼生成中...
+                                </div>
+                            </div>
+                        `;
+                        showDebugInfo();
+                    } else {
+                        logDebug('QR碼成功生成，子元素數: ' + qrcodeElement.children.length);
+                    }
+                }, 500);
+            } catch (error) {
+                logDebug('產生QR碼時出錯: ' + error.message);
+                // 創建一個簡單的文本替代QR碼
+                qrcodeElement.innerHTML = `
+                    <div style="text-align:center;padding:10px;">
+                        <p>連接ID: ${connectionId}</p>
+                        <div style="border:1px solid #000;padding:5px;margin:10px auto;width:150px;height:150px;display:flex;align-items:center;justify-content:center;">
+                            無法生成QR碼，請使用此連接ID
+                        </div>
+                    </div>
+                `;
+                showDebugInfo();
+            }
         }
         
         // 監聽來自手機的登入資料
@@ -364,8 +513,23 @@
                             processingStartTime: Date.now()
                         });
                         
-                        // 使用 Google OAuth 2.0 登入
-                        googleSignIn(data.email, connectionRef);
+                        // 設置Google登入超時處理
+                        googleLoginTimeout = setupTimeout(30, () => {
+                            statusElement.textContent = 'Google登入逾時，請嘗試手動登入';
+                            statusElement.className = 'status error';
+                            document.getElementById('manualLoginBtn').style.display = 'inline-block';
+                            document.getElementById('refreshBtn').style.display = 'inline-block';
+                            
+                            // 更新Firebase狀態
+                            connectionRef.update({
+                                status: 'timeout',
+                                errorMessage: 'Google登入逾時',
+                                errorTime: new Date().toISOString()
+                            });
+                        });
+                        
+                        // 使用新的Google登入方式
+                        redirectToGoogleLogin(data.email, connectionRef);
                     }
                 } catch (error) {
                     logDebug('處理Firebase更新時發生錯誤: ' + error.message);
@@ -382,130 +546,60 @@
             });
         }
         
-        // 使用 Google OAuth 2.0 登入
-        function googleSignIn(email, connectionRef) {
-            const statusElement = document.getElementById('status');
+        // 使用OAuth 2.0重定向方式登入Google
+        function redirectToGoogleLogin(email, connectionRef) {
+            logDebug('使用重定向方式登入Google...');
             
-            logDebug('開始Google登入流程...');
-            
-            // 檢查 Google API 是否存在
-            if (typeof gapi === 'undefined') {
-                logDebug('錯誤: Google API (gapi) 未載入');
-                statusElement.textContent = 'Google API 未載入，請重新整理頁面';
+            try {
+                // 構建Google OAuth 2.0 URL
+                const redirectUri = window.location.origin + window.location.pathname;
+                const authUrl = new URL('https://accounts.google.com/o/oauth2/auth');
+                
+                authUrl.searchParams.append('client_id', googleClientId);
+                authUrl.searchParams.append('redirect_uri', redirectUri);
+                authUrl.searchParams.append('response_type', 'token');
+                authUrl.searchParams.append('scope', 'email profile https://www.googleapis.com/auth/drive.readonly');
+                authUrl.searchParams.append('prompt', 'select_account');
+                authUrl.searchParams.append('login_hint', email);
+                
+                // 保存連接資訊到sessionStorage
+                sessionStorage.setItem('connection_id', currentConnectionId);
+                
+                // 更新Firebase狀態
+                connectionRef.update({
+                    status: 'redirecting',
+                    redirectTime: new Date().toISOString(),
+                    redirectUrl: authUrl.toString()
+                });
+                
+                logDebug('重定向到Google登入頁面: ' + authUrl.toString());
+                
+                // 重定向到Google登入頁面
+                window.location.href = authUrl.toString();
+                
+            } catch (error) {
+                logDebug('重定向到Google登入頁面時出錯: ' + error.message);
+                
+                // 顯示手動登入按鈕
+                document.getElementById('manualLoginBtn').style.display = 'inline-block';
+                document.getElementById('refreshBtn').style.display = 'inline-block';
+                
+                const statusElement = document.getElementById('status');
+                statusElement.textContent = '無法自動登入Google，請嘗試手動登入';
                 statusElement.className = 'status error';
+                
+                // 更新Firebase狀態
                 connectionRef.update({
                     status: 'error',
-                    errorMessage: 'Google API未載入',
+                    errorMessage: '重定向登入失敗: ' + error.message,
                     errorTime: new Date().toISOString()
                 });
-                document.getElementById('refreshBtn').style.display = 'inline-block';
-                showDebugInfo();
-                return;
-            }
-            
-            // 等待 Google API 載入
-            gapi.load('auth2', () => {
-                logDebug('Google Auth2 API 載入完成');
                 
-                // 初始化 Google Auth
-                try {
-                    gapi.auth2.init({
-                        client_id: '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com',
-                        scope: 'profile email https://www.googleapis.com/auth/drive.readonly'
-                    }).then(() => {
-                        logDebug('Google Auth2 初始化成功');
-                        
-                        // 嘗試自動登入，使用者需要在彈出視窗中確認
-                        const auth2 = gapi.auth2.getAuthInstance();
-                        
-                        // 預填 email
-                        const options = {
-                            prompt: 'select_account',
-                            login_hint: email
-                        };
-                        
-                        logDebug('嘗試進行Google登入...');
-                        
-                        auth2.signIn(options).then(
-                            (googleUser) => {
-                                // 登入成功
-                                const profile = googleUser.getBasicProfile();
-                                statusElement.textContent = `登入成功！歡迎 ${profile.getName()}`;
-                                statusElement.className = 'status connected';
-                                logDebug('Google登入成功: ' + profile.getName());
-                                
-                                // 獲取OAuth Token (可用於後續API呼叫)
-                                const authResponse = googleUser.getAuthResponse();
-                                const token = authResponse.access_token;
-                                const expiresAt = authResponse.expires_at;
-                                
-                                // 更新Firebase狀態，但不包含token (避免安全風險)
-                                connectionRef.update({
-                                    status: 'success',
-                                    loggedInUser: profile.getName(),
-                                    loggedInEmail: profile.getEmail(),
-                                    profileImageUrl: profile.getImageUrl(),
-                                    loggedInTime: new Date().toISOString(),
-                                    redirectUrl: 'https://www.google.com',
-                                    tokenExpiresAt: expiresAt
-                                });
-                                
-                                // 延遲後重定向到 Google 服務
-                                setTimeout(() => {
-                                    window.location.href = 'https://www.google.com';
-                                }, 3000);
-                            },
-                            (error) => {
-                                // 登入失敗
-                                statusElement.textContent = '登入失敗，請重試';
-                                statusElement.className = 'status error';
-                                logDebug('Google登入失敗: ' + JSON.stringify(error));
-                                
-                                // 更新Firebase狀態
-                                connectionRef.update({
-                                    status: 'error',
-                                    errorMessage: error.error || '登入過程中發生錯誤',
-                                    errorTime: new Date().toISOString()
-                                });
-                                
-                                // 顯示重新整理按鈕
-                                document.getElementById('refreshBtn').style.display = 'inline-block';
-                                showDebugInfo();
-                            }
-                        );
-                    }).catch(error => {
-                        // Google API 初始化失敗
-                        statusElement.textContent = '無法初始化Google登入，請檢查網路連線';
-                        statusElement.className = 'status error';
-                        logDebug('Google API初始化失敗: ' + error.message);
-                        
-                        // 更新Firebase狀態
-                        connectionRef.update({
-                            status: 'error',
-                            errorMessage: 'Google API初始化失敗',
-                            errorTime: new Date().toISOString()
-                        });
-                        
-                        // 顯示重新整理按鈕
-                        document.getElementById('refreshBtn').style.display = 'inline-block';
-                        showDebugInfo();
-                    });
-                } catch (error) {
-                    logDebug('初始化Google Auth2時發生錯誤: ' + error.message);
-                    statusElement.textContent = 'Google登入初始化失敗';
-                    statusElement.className = 'status error';
-                    showDebugInfo();
-                }
-            }, (error) => {
-                logDebug('載入Google Auth2時發生錯誤: ' + error);
-                statusElement.textContent = '無法載入Google登入服務';
-                statusElement.className = 'status error';
-                document.getElementById('refreshBtn').style.display = 'inline-block';
                 showDebugInfo();
-            });
+            }
         }
         
-        // 添加一個按鈕在頁面底部，用於顯示調試信息
+        // 添加按鍵事件以顯示調試信息
         document.addEventListener('keydown', function(event) {
             // 按Ctrl+D顯示調試信息
             if (event.ctrlKey && event.key === 'd') {
