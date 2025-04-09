@@ -26,15 +26,41 @@
             background-color: #f8d7da;
             color: #721c24;
         }
+        .debug {
+            margin-top: 20px;
+            padding: 10px;
+            font-size: 12px;
+            border: 1px solid #ccc;
+            background-color: #f8f9fa;
+            text-align: left;
+            display: none;
+        }
     </style>
 </head>
 <body>
     <h1>Google 授權完成</h1>
     <div id="message" class="message"></div>
+    <div id="debug" class="debug"></div>
     
     <script>
+        // 啟用調試日誌
+        function log(message) {
+            console.log(message);
+            const debugEl = document.getElementById('debug');
+            if (debugEl) {
+                debugEl.innerHTML += message + '<br>';
+            }
+        }
+        
+        // 顯示調試信息
+        function showDebug() {
+            document.getElementById('debug').style.display = 'block';
+        }
+        
         document.addEventListener('DOMContentLoaded', () => {
             const messageElement = document.getElementById('message');
+            
+            log('DOM 載入完成，開始處理授權回調...');
             
             // 初始化 Firebase
             const firebaseConfig = {
@@ -48,54 +74,104 @@
                 measurementId: "G-EB9PR17TJL"
             };
             
-            firebase.initializeApp(firebaseConfig);
-            const database = firebase.database();
-            
-            // 解析 URL 哈希部分獲取訪問令牌
-            const hash = window.location.hash.substring(1);
-            const params = new URLSearchParams(hash);
-            const accessToken = params.get('access_token');
-            const connectionId = params.get('state') || localStorage.getItem('pendingConnectionId');
-            
-            if (!accessToken) {
-                messageElement.textContent = '授權失敗，未獲取訪問令牌。';
-                messageElement.className = 'message error';
-                return;
-            }
-            
-            if (!connectionId) {
-                messageElement.textContent = '無法識別連接，請重新掃描 QR 碼。';
-                messageElement.className = 'message error';
-                return;
-            }
-            
-            // 獲取用戶信息
-            fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                headers: { 'Authorization': `Bearer ${accessToken}` }
-            })
-            .then(response => response.json())
-            .then(userData => {
-                // 將訪問令牌發送到 Firebase
-                const connectionRef = database.ref('connections/' + connectionId);
-                connectionRef.update({
-                    access_token: accessToken,
-                    user_email: userData.email,
-                    user_name: userData.name,
-                    status: 'authenticated',
-                    authentication_time: Date.now()
+            try {
+                firebase.initializeApp(firebaseConfig);
+                const database = firebase.database();
+                log('Firebase 初始化成功');
+                
+                // 解析 URL 哈希部分獲取訪問令牌
+                const hash = window.location.hash.substring(1);
+                const params = new URLSearchParams(hash);
+                const accessToken = params.get('access_token');
+                const connectionId = params.get('state') || localStorage.getItem('pendingConnectionId');
+                
+                log('解析URL哈希參數:');
+                log('- Access Token: ' + (accessToken ? '已獲取' : '未獲取'));
+                log('- Connection ID: ' + connectionId);
+                
+                if (!accessToken) {
+                    messageElement.textContent = '授權失敗，未獲取訪問令牌。';
+                    messageElement.className = 'message error';
+                    showDebug();
+                    return;
+                }
+                
+                if (!connectionId) {
+                    messageElement.textContent = '無法識別連接，請重新掃描 QR 碼。';
+                    messageElement.className = 'message error';
+                    showDebug();
+                    return;
+                }
+                
+                // 顯示處理中訊息
+                messageElement.textContent = '處理授權中...';
+                messageElement.className = 'message';
+                
+                // 獲取用戶信息
+                log('開始獲取用戶信息...');
+                fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                })
+                .then(response => {
+                    log('用戶信息API回應狀態: ' + response.status);
+                    if (!response.ok) {
+                        throw new Error('API回應錯誤: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(userData => {
+                    log('成功獲取用戶資料:');
+                    log('- 用戶郵箱: ' + userData.email);
+                    log('- 用戶名稱: ' + userData.name);
+                    
+                    // 將訪問令牌發送到 Firebase
+                    log('開始更新Firebase資料...');
+                    const connectionRef = database.ref('connections/' + connectionId);
+                    
+                    connectionRef.update({
+                        access_token: accessToken,
+                        user_email: userData.email,
+                        user_name: userData.name,
+                        status: 'authenticated',
+                        authentication_time: Date.now()
+                    })
+                    .then(() => {
+                        log('Firebase資料更新成功');
+                        messageElement.textContent = '授權成功！請返回到桌面端查看。';
+                        messageElement.className = 'message success';
+                        
+                        // 清除暫存的連接 ID
+                        localStorage.removeItem('pendingConnectionId');
+                    })
+                    .catch(error => {
+                        log('Firebase資料更新失敗: ' + error.message);
+                        messageElement.textContent = '授權成功但無法儲存資料，請重試。';
+                        messageElement.className = 'message error';
+                        showDebug();
+                    });
+                })
+                .catch(error => {
+                    log('獲取用戶資料錯誤: ' + error.message);
+                    messageElement.textContent = '獲取用戶資料失敗。';
+                    messageElement.className = 'message error';
+                    showDebug();
                 });
-                
-                messageElement.textContent = '授權成功！請返回到桌面端查看。';
-                messageElement.className = 'message success';
-                
-                // 清除暫存的連接 ID
-                localStorage.removeItem('pendingConnectionId');
-            })
-            .catch(error => {
-                console.error('Error fetching user data:', error);
-                messageElement.textContent = '獲取用戶資料失敗。';
+            } catch (error) {
+                log('處理授權過程中發生錯誤: ' + error.message);
+                messageElement.textContent = '處理授權過程中發生錯誤。';
                 messageElement.className = 'message error';
-            });
+                showDebug();
+            }
+        });
+        
+        // 添加調試功能 - 點擊三次訊息顯示調試信息
+        let clickCount = 0;
+        document.getElementById('message').addEventListener('click', () => {
+            clickCount++;
+            if (clickCount >= 3) {
+                showDebug();
+                clickCount = 0;
+            }
         });
     </script>
 </body>
