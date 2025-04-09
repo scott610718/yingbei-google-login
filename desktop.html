@@ -48,7 +48,7 @@
             background-color: white;
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            min-height: 200px; /* 確保即使QR碼未加載有足夠空間 */
+            min-height: 200px;
             min-width: 200px;
         }
         .instructions {
@@ -130,7 +130,7 @@
             font-size: 12px;
             color: #666;
             text-align: left;
-            display: none; /* 預設隱藏，僅用於調試 */
+            display: none;
         }
     </style>
 </head>
@@ -234,7 +234,9 @@
             // 設置手動登入按鈕事件
             document.getElementById('manualLoginBtn').addEventListener('click', () => {
                 logDebug('點擊手動登入按鈕');
-                window.location.href = `https://accounts.google.com/o/oauth2/auth?client_id=${googleClientId}&redirect_uri=${encodeURIComponent(window.location.origin + window.location.pathname)}&response_type=token&scope=email%20profile%20https://www.googleapis.com/auth/drive.readonly&prompt=select_account`;
+                // 使用當前完整URL作為重定向URI
+                const redirectUri = encodeURIComponent(window.location.href.split('#')[0]);
+                window.location.href = `https://accounts.google.com/o/oauth2/auth?client_id=${googleClientId}&redirect_uri=${redirectUri}&response_type=token&scope=email%20profile%20https://www.googleapis.com/auth/drive.readonly&prompt=select_account`;
             });
         });
         
@@ -551,8 +553,8 @@
             logDebug('使用重定向方式登入Google...');
             
             try {
-                // 構建Google OAuth 2.0 URL
-                const redirectUri = window.location.origin + window.location.pathname;
+                // 使用當前完整URL作為重定向URI(去除hash部分)
+                const redirectUri = window.location.href.split('#')[0];
                 const authUrl = new URL('https://accounts.google.com/o/oauth2/auth');
                 
                 authUrl.searchParams.append('client_id', googleClientId);
