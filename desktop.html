@@ -495,41 +495,29 @@ function startListening(connectionId, database) {
 connectionRef.on('value', (snapshot) => {
     try {
         const data = snapshot.val();
-        logDebug('收到Firebase更新: ' + (data ? '有資料' : '無資料'));
+        logDebug('收到Firebase更新: ' + JSON.stringify(data));
         
         if (data && data.status === 'authenticated' && data.access_token) {
-            // 清除超時計時器
             clearTimeout(timeout);
+            
+            // 詳細記錄令牌信息（但不顯示完整令牌）
+            logDebug('收到授權令牌: ' + data.access_token.substring(0, 10) + '...');
+            logDebug('用戶郵箱: ' + (data.user_email || '未提供'));
             
             statusElement.textContent = '已接收授權令牌，正在登入 Google...';
             statusElement.className = 'status connected';
-            logDebug('收到授權令牌: ' + data.access_token.substring(0, 10) + '...');
             
-            // 更新狀態為處理中
-            connectionRef.update({
-                status: 'processing',
-                processingStartTime: Date.now()
-            });
-            
-            // 確保有郵箱信息
-            const userEmail = data.user_email || '';
-            
-            // 使用令牌自動登入 Google
-            handleAccessToken(data.access_token, userEmail, connectionRef);
-        }
-        } catch (error) {
-            logDebug('處理Firebase更新時發生錯誤: ' + error.message);
-            statusElement.textContent = '處理資料時發生錯誤';
-            statusElement.className = 'status error';
+            // 自動顯示調試信息
             showDebugInfo();
+            
+            // 其他處理...
         }
-    }, (error) => {
-        logDebug('Firebase監聽錯誤: ' + error.message);
-        statusElement.textContent = 'Firebase連線錯誤';
-        statusElement.className = 'status error';
-        document.getElementById('refreshBtn').style.display = 'inline-block';
+    } catch (error) {
+        logDebug('處理 Firebase 數據時發生錯誤: ' + error.message);
+        // 顯示調試信息
         showDebugInfo();
-    });
+    }
+});
 }
 
 // 新增處理訪問令牌的函數
