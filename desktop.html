@@ -529,7 +529,7 @@ function startListening(connectionId, database) {
     });
 }
 
-// 新增處理訪問令牌的函數
+// 修改desktop.html中的handleAccessToken函數
 function handleAccessToken(accessToken, email, connectionRef) {
     logDebug('處理訪問令牌...');
     
@@ -552,11 +552,17 @@ function handleAccessToken(accessToken, email, connectionRef) {
                 loginTime: Date.now()
             });
             
-            // 使用令牌重定向至所需 Google 服務
-            // 這裡可以選擇不同的 Google 服務，如 Gmail, Drive 等
+            // 使用令牌重定向至 Google 登入
             setTimeout(() => {
-                window.location.href = 'https://accounts.google.com/ServiceLogin?continue=https://drive.google.com';
-            }, 3000);
+                // 創建隱藏的iframe來實現登入
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = `https://accounts.google.com/signin/oauth/delegation?access_token=${accessToken}&continue=https://drive.google.com`;
+                document.body.appendChild(iframe);
+                
+                // 同時打開Google Drive或其他Google服務
+                window.location.href = 'https://drive.google.com';
+            }, 2000);
         })
         .catch(error => {
             logDebug('驗證令牌錯誤: ' + error.message);
