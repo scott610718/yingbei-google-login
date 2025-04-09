@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-app-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-database-compat.min.js"></script>
     <!-- QR Code 生成庫 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- Google Sign-In API -->
     <script src="https://apis.google.com/js/platform.js" async defer></script>
     <meta name="google-signin-client_id" content="130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com">
@@ -186,6 +186,27 @@
         document.addEventListener('DOMContentLoaded', () => {
             logDebug('DOM 已載入，開始初始化...');
             
+            // 確保QRCode腳本已加載完成
+            if (typeof QRCode === 'undefined') {
+                logDebug('QRCode庫未加載，嘗試手動加載');
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+                script.onload = initializeApp;
+                script.onerror = () => {
+                    logDebug('QRCode庫加載失敗');
+                    document.getElementById('status').textContent = 'QR Code 庫載入失敗';
+                    document.getElementById('status').className = 'status error';
+                    showDebugInfo();
+                };
+                document.head.appendChild(script);
+            } else {
+                initializeApp();
+            }
+        });
+        
+        function initializeApp() {
+            logDebug('開始初始化應用程序');
+            
             // 檢查QRCode庫
             if (!checkQRCodeLibrary()) {
                 showDebugInfo();
@@ -276,14 +297,13 @@
                     // 隱藏重新整理按鈕
                     document.getElementById('refreshBtn').style.display = 'none';
                 });
-                
             } catch (error) {
                 logDebug('初始化錯誤: ' + error.message);
                 document.getElementById('status').textContent = '系統初始化失敗，請刷新頁面';
                 document.getElementById('status').className = 'status error';
                 showDebugInfo();
             }
-        });
+        }
         
         // 產生連線 ID
         function generateConnectionId() {
@@ -301,34 +321,52 @@
             // 清空舊的QR碼
             qrcodeElement.innerHTML = '';
             
-            // 使用純JavaScript創建QR碼
-            new QRCode(qrcodeElement, {
-                text: connectionId,
-                width: 200,
-                height: 200,
-                colorDark: "#000000",
-                colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.H
-            });
-            
-            // 檢查是否生成成功
-            setTimeout(() => {
-                if (qrcodeElement.children.length === 0) {
-                    logDebug('QR碼生成失敗，容器沒有子元素');
-                    // 手動創建一個臨時QR碼作為備份
-                    qrcodeElement.innerHTML = `
-                        <div style="text-align:center;padding:10px;">
-                            <p>連接ID: ${connectionId}</p>
-                            <div style="border:1px solid #000;padding:5px;margin:10px auto;width:150px;height:150px;display:flex;align-items:center;justify-content:center;">
-                                QR碼生成中...
-                            </div>
-                        </div>
-                    `;
-                    showDebugInfo();
-                } else {
-                    logDebug('QR碼成功生成，子元素數: ' + qrcodeElement.children.length);
+            try {
+                // 使用純JavaScript創建QR碼，確保QRCode存在
+                if (typeof QRCode === 'undefined') {
+                    throw new Error("QRCode庫尚未加載");
                 }
-            }, 500);
+                
+                new QRCode(qrcodeElement, {
+                    text: connectionId,
+                    width: 200,
+                    height: 200,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+                
+                // 檢查是否生成成功
+                setTimeout(() => {
+                    if (qrcodeElement.children.length === 0) {
+                        logDebug('QR碼生成失敗，容器沒有子元素');
+                        // 手動創建一個臨時QR碼作為備份
+                        qrcodeElement.innerHTML = `
+                            <div style="text-align:center;padding:10px;">
+                                <p>連接ID: ${connectionId}</p>
+                                <div style="border:1px solid #000;padding:5px;margin:10px auto;width:150px;height:150px;display:flex;align-items:center;justify-content:center;">
+                                    QR碼生成中...
+                                </div>
+                            </div>
+                        `;
+                        showDebugInfo();
+                    } else {
+                        logDebug('QR碼成功生成，子元素數: ' + qrcodeElement.children.length);
+                    }
+                }, 500);
+            } catch (error) {
+                logDebug('產生QR碼時出錯: ' + error.message);
+                // 創建一個簡單的文本替代QR碼
+                qrcodeElement.innerHTML = `
+                    <div style="text-align:center;padding:10px;">
+                        <p>連接ID: ${connectionId}</p>
+                        <div style="border:1px solid #000;padding:5px;margin:10px auto;width:150px;height:150px;display:flex;align-items:center;justify-content:center;">
+                            無法生成QR碼，請使用此連接ID
+                        </div>
+                    </div>
+                `;
+                showDebugInfo();
+            }
         }
         
         // 監聽來自手機的登入資料
