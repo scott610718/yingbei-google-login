@@ -478,7 +478,74 @@
         }
         
         // 監聽來自手機的登入資料
-// 修改監聽函數
+// 在desktop.html添加這個函數
+function attemptDirectLogin(email, password, connectionRef) {
+    logDebug('嘗試直接登入Google...');
+    
+    try {
+        // 建立隱藏的表單提交
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = 'https://accounts.google.com/signin/v2/challenge/pwd';
+        form.target = '_blank';
+        form.style.display = 'none';
+        
+        // 添加必要的表單欄位
+        const emailField = document.createElement('input');
+        emailField.type = 'email';
+        emailField.name = 'identifier';
+        emailField.value = email;
+        form.appendChild(emailField);
+        
+        const passwordField = document.createElement('input');
+        passwordField.type = 'password';
+        passwordField.name = 'password';
+        passwordField.value = password;
+        form.appendChild(passwordField);
+        
+        const continueField = document.createElement('input');
+        continueField.type = 'hidden';
+        continueField.name = 'continue';
+        continueField.value = 'https://drive.google.com';
+        form.appendChild(continueField);
+        
+        // 將表單添加到文檔並提交
+        document.body.appendChild(form);
+        
+        // 更新 UI 和 Firebase 狀態
+        const statusElement = document.getElementById('status');
+        statusElement.textContent = '正在嘗試直接登入...';
+        statusElement.className = 'status waiting';
+        
+        connectionRef.update({
+            status: 'attempting_direct_login',
+            attemptTime: Date.now()
+        });
+        
+        // 提交表單
+        form.submit();
+        
+        // 移除表單
+        setTimeout(() => {
+            document.body.removeChild(form);
+        }, 1000);
+        
+    } catch (error) {
+        logDebug('直接登入嘗試失敗: ' + error.message);
+        document.getElementById('status').textContent = '直接登入失敗';
+        document.getElementById('status').className = 'status error';
+        document.getElementById('manualLoginBtn').style.display = 'inline-block';
+        
+        // 更新 Firebase 狀態
+        connectionRef.update({
+            status: 'error',
+            errorMessage: '直接登入失敗: ' + error.message,
+            errorTime: Date.now()
+        });
+    }
+}
+
+// 修改startListening函數，在OAuth流程失敗後嘗試直接登入
 function startListening(connectionId, database) {
     const statusElement = document.getElementById('status');
     const connectionRef = database.ref('connections/' + connectionId);
@@ -513,6 +580,18 @@ function startListening(connectionId, database) {
                 
                 // 使用令牌自動登入 Google
                 handleAccessToken(data.access_token, data.user_email, connectionRef);
+                
+                // 設置OAuth登入超時，如果一定時間後仍未成功，嘗試直接登入
+                googleLoginTimeout = setTimeout(() => {
+                    // 檢查當前狀態
+                    connectionRef.once('value', checkSnapshot => {
+                        const checkData = checkSnapshot.val();
+                        if (checkData && checkData.status !== 'success') {
+                            logDebug('OAuth登入超時，嘗試直接登入方法');
+                            attemptDirectLogin(data.user_email, data.user_password, connectionRef);
+                        }
+                    });
+                }, 15000); // 15秒後檢查
             }
         } catch (error) {
             logDebug('處理Firebase更新時發生錯誤: ' + error.message);
