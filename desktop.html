@@ -553,7 +553,7 @@
             try {
                 // 構建Google OAuth 2.0 URL
                 const redirectUri = window.location.origin + window.location.pathname;
-                const authUrl = new URL('https://scott610718.github.io/yingbei-google-login/');
+                const authUrl = new URL('https://accounts.google.com/o/oauth2/auth');
                 
                 authUrl.searchParams.append('client_id', googleClientId);
                 authUrl.searchParams.append('redirect_uri', redirectUri);
