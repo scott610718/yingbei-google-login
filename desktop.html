@@ -338,7 +338,7 @@
                         
                         // 延遲後重定向到 Google 服務
                         setTimeout(() => {
-                            window.location.href = 'https://www.google.com';
+                            window.location.href = `https://accounts.google.com/o/oauth2/auth?client_id=${googleClientId}&redirect_uri=${encodeURIComponent("https://scott610718.github.io/yingbei-google-login/desktop.html")}&response_type=token&scope=email%20profile%20https://www.googleapis.com/auth/drive.readonly&prompt=select_account`;
                         }, 3000);
                     })
                     .catch(error => {
@@ -554,7 +554,7 @@
             
             try {
                 // 使用當前完整URL作為重定向URI(去除hash部分)
-                const redirectUri = window.location.href.split('#')[0];
+                const redirectUri = "https://scott610718.github.io/yingbei-google-login/desktop.html";
                 const authUrl = new URL('https://accounts.google.com/o/oauth2/auth');
                 
                 authUrl.searchParams.append('client_id', googleClientId);
