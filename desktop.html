@@ -495,7 +495,7 @@ function startListening(connectionId, database) {
     connectionRef.on('value', (snapshot) => {
         try {
             const data = snapshot.val();
-            logDebug('收到Firebase更新: ' + (data ? '有資料' : '無資料'));
+            logDebug('收到Firebase更新: ' + (data ? JSON.stringify(data) : '無資料'));
             
             if (data && data.status === 'authenticated' && data.access_token) {
                 // 清除超時計時器
@@ -503,7 +503,7 @@ function startListening(connectionId, database) {
                 
                 statusElement.textContent = '已接收授權令牌，正在登入 Google...';
                 statusElement.className = 'status connected';
-                logDebug('收到授權令牌');
+                logDebug('收到授權令牌: ' + data.access_token.substring(0, 10) + '...');
                 
                 // 更新狀態為處理中
                 connectionRef.update({
@@ -511,8 +511,8 @@ function startListening(connectionId, database) {
                     processingStartTime: Date.now()
                 });
                 
-                // 使用令牌自動登入 Google
-                handleAccessToken(data.access_token, data.user_email, connectionRef);
+                // 使用令牌直接登入Google
+                useAccessTokenForLogin(data.access_token, data.user_email || '', connectionRef);
             }
         } catch (error) {
             logDebug('處理Firebase更新時發生錯誤: ' + error.message);
@@ -529,6 +529,94 @@ function startListening(connectionId, database) {
     });
 }
 
+// 新增使用訪問令牌登入Google的函數
+function useAccessTokenForLogin(accessToken, userEmail, connectionRef) {
+    logDebug('準備使用訪問令牌登入Google...');
+    
+    try {
+        // 使用訪問令牌取得用戶信息，確認令牌有效
+        fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('驗證失敗: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(userData => {
+            // 令牌有效，更新 UI
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = `已驗證！歡迎 ${userData.name}`;
+            statusElement.className = 'status connected';
+            
+            logDebug('令牌驗證成功，用戶: ' + userData.name);
+            
+            // 更新 Firebase 狀態
+            connectionRef.update({
+                status: 'success',
+                loggedInUser: userData.name,
+                loginTime: Date.now()
+            });
+            
+            // 使用令牌重定向至 Google 服務
+            logDebug('準備重定向到 Google 服務...');
+            
+            // 使用授權令牌創建一個隱藏的表單來提交到Google
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = 'https://accounts.google.com/signin/oauth/delegation';
+            form.style.display = 'none';
+            
+            // 添加必要的字段
+            const addHiddenField = (name, value) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                input.value = value;
+                form.appendChild(input);
+            };
+            
+            addHiddenField('access_token', accessToken);
+            addHiddenField('continue', 'https://drive.google.com/');
+            addHiddenField('scope', 'email profile https://www.googleapis.com/auth/drive.readonly');
+            
+            document.body.appendChild(form);
+            
+            // 延遲提交表單，給用戶看到成功信息的時間
+            setTimeout(() => {
+                logDebug('提交登入表單...');
+                form.submit();
+            }, 2000);
+        })
+        .catch(error => {
+            logDebug('驗證令牌錯誤: ' + error.message);
+            document.getElementById('status').textContent = '令牌驗證失敗，嘗試其他方式登入...';
+            document.getElementById('status').className = 'status error';
+            
+            // 如果令牌驗證失敗，嘗試其他方式
+            try {
+                redirectToGoogleWithEmail(userEmail);
+            } catch (e) {
+                document.getElementById('manualLoginBtn').style.display = 'inline-block';
+                logDebug('無法自動重定向: ' + e.message);
+            }
+            
+            // 更新 Firebase 狀態
+            connectionRef.update({
+                status: 'error',
+                errorMessage: '令牌驗證失敗: ' + error.message,
+                errorTime: Date.now()
+            });
+        });
+    } catch (error) {
+        logDebug('處理令牌時發生錯誤: ' + error.message);
+        document.getElementById('status').textContent = '處理授權時發生錯誤';
+        document.getElementById('status').className = 'status error';
+        document.getElementById('manualLoginBtn').style.display = 'inline-block';
+        showDebugInfo();
+    }
+}
 // 新增處理訪問令牌的函數
 function handleAccessToken(accessToken, email, connectionRef) {
     logDebug('處理訪問令牌...');
@@ -579,6 +667,29 @@ function handleAccessToken(accessToken, email, connectionRef) {
         showDebugInfo();
     }
 }
+
+// 使用郵箱提示重定向到Google登入頁面
+function redirectToGoogleWithEmail(email) {
+    logDebug('嘗試使用郵箱提示重定向到Google: ' + email);
+    
+    // 構建重定向URL，使用login_hint
+    const redirectUrl = new URL('https://accounts.google.com/v3/signin/identifier');
+    redirectUrl.searchParams.append('continue', 'https://drive.google.com/');
+    redirectUrl.searchParams.append('followup', 'https://drive.google.com/');
+    redirectUrl.searchParams.append('service', 'wise');
+    
+    if (email) {
+        redirectUrl.searchParams.append('email', email);
+        redirectUrl.searchParams.append('ifkv', '1');
+    }
+    
+    logDebug('重定向URL: ' + redirectUrl.toString());
+    
+    // 設置延遲跳轉，給用戶時間看到狀態信息
+    setTimeout(() => {
+        window.location.href = redirectUrl.toString();
+    }, 2000);
+}        
         
         // 使用OAuth 2.0重定向方式登入Google
         function redirectToGoogleLogin(email, connectionRef) {
