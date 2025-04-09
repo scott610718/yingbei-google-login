@@ -1,3 +1,8 @@
+看來在生成 QR Code 時出現了錯誤。這個錯誤是因為 `QRCode.CorrectLevel` 中的屬性 `H` 無法讀取。這可能是因為 QRCode 庫未正確載入或者使用了錯誤的生成方式。讓我們修正這段代碼，並確保 QRCode 庫正確載入。
+
+以下是修改後的腳本部分，確保 QRCode 正確生成：
+
+```html
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -8,7 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-app-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-database-compat.min.js"></script>
     <!-- QR Code 生成庫 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
     <!-- Google Sign-In API -->
     <script src="https://apis.google.com/js/platform.js" async defer></script>
     <meta name="google-signin-client_id" content="130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com">
@@ -126,7 +131,7 @@
 </head>
 <body>
     <div class="container">
-        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTEyIDIxLjM1bC0xLjQ1LTEuMzJDNS40IDE1LjM2IDIgMTIuMjggMiA4LjUgMiA1LjQyIDQuNDIgMyA3LjUgM2MxLjc0IDAgMy40MS44MSA0LjUgMi4wOUMxMy4wOSAzLjgxIDE0Ljc2IDMgMTYuNSAzIDE5LjU4IDMgMjIgNS40MiAyMiA4LjVjMCAzLjc4LTMuNCA2Ljg2LTguNTUgMTEuNTRMMTIgMjEuMzV6IiBmaWxsPSIjRjQ0MzM2Ii8+PC9zdmc+" alt="營北國中" class="school-logo">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTEyIDIxLjM1bC0xLjQ1LTEuMzJDNS40IDE1LjM2IDIgMTIuMjggMiA4LjUgMiA1[...]
         <h1>營北國中自動登入GOOGLE系統</h1>
         
         <div class="instructions">
@@ -141,7 +146,7 @@
         </div>
 
         <div class="qr-container">
-            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNTAgMTUwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9Im5vbnplcm8iPjxwYXRoIGZpbGw9IiNFQTQzMzUiIGQ9Ik0xMjAgNzYuMWMwLTMuMS0uMy01LjMtLjgtNy42SDc2LjF2MTQuNGgzMS45Yy0xLjQgNy42LTUuNiAxNC0xMS45IDE4LjN2MTUuMmgxOS4zYzExLjMtMTAuNCAxNy44LTI1LjcgMTcuOC00MC4zeiIvPjxwYXRoIGZpbGw9IiM0Mjg1RjQiIGQ9Ik03Ni4xIDEyMGMxNi4xIDAgMjkuNi01LjIgMzkuNC0xNC4xbC0xOS4zLTE1LjJjLTUuMyAzLjYtMTIuMSA1LjYtMjAuMSA1LjYtMTUuNSAwLTI4LjYtMTAuNS0zMy4zLTI0LjVIMjIuN3YxNS43YzkuNyAxOS4zIDI5LjEgMzIuNSA1My40IDMyLjV6Ii8+PHBhdGggZmlsbD0iI0ZCQkMwNSIgZD0iTTQyLjggNzEuOGMtMS4yLTMuNi0xLjgtNy41LTEuOC0xMS40IDAtMy45LjctNy44IDEuOC0xMS40VjMzLjNIMjIuN2MtNC44IDkuNS03LjUgMjAuMi03LjUgMzEuNiAwIDExLjMgMi43IDIyLjEgNy41IDMxLjZsMjAuMS0xNS43eiIvPjxwYXRoIGZpbGw9IiMzNEE4NTMiIGQ9Ik03Ni4xIDQzLjRjOC43IDAgMTYuNCAzLjEgMjIuNiA5LjFsMTcuMi0xNy4yQzEwNS4zIDI2LjEgOTEuOCAxOSA3Ni4xIDE5Yy0yNC4zIDAtNDUuNyAxMy4yLTU1LjQgMzIuM2wyMC4xIDE1LjdjNC43LTE0IDEyLjgtMjkuNiAyOC4zLTI5LjZ6Ii8+PC9nPjwvc3ZnPg==" alt="Google" class="google-logo">
+            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNTAgMTUwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9Im5vbnplcm8iPjxwYXRoIGZpbGw9IiNFQTQz[...]
             <div id="qrcode"></div>
             <div id="status" class="status waiting">等待手機掃描...</div>
             <button id="refreshBtn">重新產生QR碼</button>
@@ -302,14 +307,10 @@
             qrcodeElement.innerHTML = '';
             
             // 使用純JavaScript創建QR碼
-            new QRCode(qrcodeElement, {
-                text: connectionId,
-                width: 200,
-                height: 200,
-                colorDark: "#000000",
-                colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.H
-            });
+            const qrcode = QRCode(4, 'L');
+            qrcode.addData(connectionId);
+            qrcode.make();
+            qrcodeElement.innerHTML = qrcode.createImgTag();
             
             // 檢查是否生成成功
             setTimeout(() => {
@@ -448,71 +449,3 @@
                                     loggedInTime: new Date().toISOString(),
                                     redirectUrl: 'https://www.google.com',
                                     tokenExpiresAt: expiresAt
-                                });
-                                
-                                // 延遲後重定向到 Google 服務
-                                setTimeout(() => {
-                                    window.location.href = 'https://www.google.com';
-                                }, 3000);
-                            },
-                            (error) => {
-                                // 登入失敗
-                                statusElement.textContent = '登入失敗，請重試';
-                                statusElement.className = 'status error';
-                                logDebug('Google登入失敗: ' + JSON.stringify(error));
-                                
-                                // 更新Firebase狀態
-                                connectionRef.update({
-                                    status: 'error',
-                                    errorMessage: error.error || '登入過程中發生錯誤',
-                                    errorTime: new Date().toISOString()
-                                });
-                                
-                                // 顯示重新整理按鈕
-                                document.getElementById('refreshBtn').style.display = 'inline-block';
-                                showDebugInfo();
-                            }
-                        );
-                    }).catch(error => {
-                        // Google API 初始化失敗
-                        statusElement.textContent = '無法初始化Google登入，請檢查網路連線';
-                        statusElement.className = 'status error';
-                        logDebug('Google API初始化失敗: ' + error.message);
-                        
-                        // 更新Firebase狀態
-                        connectionRef.update({
-                            status: 'error',
-                            errorMessage: 'Google API初始化失敗',
-                            errorTime: new Date().toISOString()
-                        });
-                        
-                        // 顯示重新整理按鈕
-                        document.getElementById('refreshBtn').style.display = 'inline-block';
-                        showDebugInfo();
-                    });
-                } catch (error) {
-                    logDebug('初始化Google Auth2時發生錯誤: ' + error.message);
-                    statusElement.textContent = 'Google登入初始化失敗';
-                    statusElement.className = 'status error';
-                    showDebugInfo();
-                }
-            }, (error) => {
-                logDebug('載入Google Auth2時發生錯誤: ' + error);
-                statusElement.textContent = '無法載入Google登入服務';
-                statusElement.className = 'status error';
-                document.getElementById('refreshBtn').style.display = 'inline-block';
-                showDebugInfo();
-            });
-        }
-        
-        // 添加一個按鈕在頁面底部，用於顯示調試信息
-        document.addEventListener('keydown', function(event) {
-            // 按Ctrl+D顯示調試信息
-            if (event.ctrlKey && event.key === 'd') {
-                showDebugInfo();
-                logDebug('已手動顯示調試信息');
-            }
-        });
-    </script>
-</body>
-</html>
