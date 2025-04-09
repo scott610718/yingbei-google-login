@@ -70,36 +70,37 @@
             }
             
             // 獲取用戶信息
-            fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                headers: { 'Authorization': `Bearer ${accessToken}` }
-            })
-            .then(response => response.json())
-            .then(userData => {
-            // 將訪問令牌發送到 Firebase
-            const connectionRef = database.ref('connections/' + connectionId);
-            connectionRef.update({
-                access_token: accessToken,
-                user_email: userData.email,
-                user_name: userData.name,
-                user_picture: userData.picture, // 可選: 添加用戶頭像
-                status: 'authenticated',
-                authentication_time: Date.now(),
-                token_type: params.get('token_type') || 'Bearer',
-                expires_in: params.get('expires_in') || '3600'
-            });
-                
-                messageElement.textContent = '授權成功！請返回到桌面端查看。';
-                messageElement.className = 'message success';
-                
-                // 清除暫存的連接 ID
-                localStorage.removeItem('pendingConnectionId');
-            })
-            .catch(error => {
-                console.error('Error fetching user data:', error);
-                messageElement.textContent = '獲取用戶資料失敗。';
-                messageElement.className = 'message error';
-            });
-        });
+fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+})
+.then(response => response.json())
+.then(userData => {
+    console.log('成功獲取用戶資料', userData);
+    
+    // 將訪問令牌發送到 Firebase
+    const connectionRef = database.ref('connections/' + connectionId);
+    connectionRef.update({
+        access_token: accessToken,
+        user_email: userData.email,
+        user_name: userData.name,
+        status: 'authenticated',
+        authentication_time: Date.now(),
+        // 添加更多有用信息
+        expires_in: params.get('expires_in'),
+        token_type: params.get('token_type')
+    });
+    
+    // 在更新後立即讀取一次數據，確認數據已成功寫入
+    connectionRef.once('value', (snapshot) => {
+        console.log('Firebase 數據確認:', snapshot.val());
+        
+        messageElement.textContent = '授權成功！請返回到桌面端查看。';
+        messageElement.className = 'message success';
+        
+        // 清除暫存的連接 ID
+        localStorage.removeItem('pendingConnectionId');
+    });
+})
     </script>
 </body>
 </html>
