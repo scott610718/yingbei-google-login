@@ -1,0 +1,259 @@
+<!-- 電腦端應用 (desktop.html) -->
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>營北國中自動登入GOOGLE系統</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js"></script>
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <meta name="google-signin-client_id" content="130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        h1 {
+            color: #4285F4;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        .qr-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        #qrcode {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .instructions {
+            background-color: #e8f0fe;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+        .instructions h2 {
+            color: #4285F4;
+            margin-top: 0;
+        }
+        .instructions ol {
+            margin-left: 20px;
+            padding-left: 0;
+        }
+        .instructions li {
+            margin-bottom: 10px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .waiting {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .google-logo {
+            width: 100px;
+            margin-bottom: 20px;
+        }
+        .school-logo {
+            width: 80px;
+            margin-bottom: 10px;
+        }
+        .footer {
+            margin-top: 30px;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTEyIDIxLjM1bC0xLjQ1LTEuMzJDNS40IDE1LjM2IDIgMTIuMjggMiA4LjUgMiA1LjQyIDQuNDIgMyA3LjUgM2MxLjc0IDAgMy40MS44MSA0LjUgMi4wOUMxMy4wOSAzLjgxIDE0Ljc2IDMgMTYuNSAzIDE5LjU4IDMgMjIgNS40MiAyMiA4LjVjMCAzLjc4LTMuNCA2Ljg2LTguNTUgMTEuNTRMMTIgMjEuMzV6IiBmaWxsPSIjRjQ0MzM2Ii8+PC9zdmc+" alt="營北國中" class="school-logo">
+        <h1>營北國中自動登入GOOGLE系統</h1>
+        
+        <div class="instructions">
+            <h2>使用說明</h2>
+            <ol>
+                <li>請使用手機開啟營北國中Google登入手機應用程式</li>
+                <li>在手機上輸入並儲存您的Google帳號與密碼</li>
+                <li>點擊「掃描 QR Code」按鈕</li>
+                <li>掃描下方的 QR Code</li>
+                <li>掃描成功後，系統將自動為您登入Google</li>
+            </ol>
+        </div>
+
+        <div class="qr-container">
+            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNTAgMTUwIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9Im5vbnplcm8iPjxwYXRoIGZpbGw9IiNFQTQzMzUiIGQ9Ik0xMjAgNzYuMWMwLTMuMS0uMy01LjMtLjgtNy42SDc2LjF2MTQuNGgzMS45Yy0xLjQgNy42LTUuNiAxNC0xMS45IDE4LjN2MTUuMmgxOS4zYzExLjMtMTAuNCAxNy44LTI1LjcgMTcuOC00MC4zeiIvPjxwYXRoIGZpbGw9IiM0Mjg1RjQiIGQ9Ik03Ni4xIDEyMGMxNi4xIDAgMjkuNi01LjIgMzkuNC0xNC4xbC0xOS4zLTE1LjJjLTUuMyAzLjYtMTIuMSA1LjYtMjAuMSA1LjYtMTUuNSAwLTI4LjYtMTAuNS0zMy4zLTI0LjVIMjIuN3YxNS43YzkuNyAxOS4zIDI5LjEgMzIuNSA1My40IDMyLjV6Ii8+PHBhdGggZmlsbD0iI0ZCQkMwNSIgZD0iTTQyLjggNzEuOGMtMS4yLTMuNi0xLjgtNy41LTEuOC0xMS40IDAtMy45LjctNy44IDEuOC0xMS40VjMzLjNIMjIuN2MtNC44IDkuNS03LjUgMjAuMi03LjUgMzEuNiAwIDExLjMgMi43IDIyLjEgNy41IDMxLjZsMjAuMS0xNS43eiIvPjxwYXRoIGZpbGw9IiMzNEE4NTMiIGQ9Ik03Ni4xIDQzLjRjOC43IDAgMTYuNCAzLjEgMjIuNiA5LjFsMTcuMi0xNy4yQzEwNS4zIDI2LjEgOTEuOCAxOSA3Ni4xIDE5Yy0yNC4zIDAtNDUuNyAxMy4yLTU1LjQgMzIuM2wyMC4xIDE1LjdjNC43LTE0IDEyLjgtMjkuNiAyOC4zLTI5LjZ6Ii8+PC9nPjwvc3ZnPg==" alt="Google" class="google-logo">
+            <div id="qrcode"></div>
+            <div id="status" class="status waiting">等待手機掃描...</div>
+        </div>
+        
+        <div class="footer">
+            © 營北國中 - 由校內資訊組維護
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // 產生連線 ID
+            const connectionId = 'conn-' + Math.random().toString(36).substring(2, 10);
+            
+            // 產生並顯示 QR Code
+            const qrcode = new QRCode(document.getElementById("qrcode"), {
+                text: connectionId,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+            
+            // 開始監聽來自手機的連線
+            startListening(connectionId);
+        });
+        
+        // 監聽來自手機的登入資料
+        function startListening(connectionId) {
+            // 實際應用中需要使用 WebSocket 或類似技術
+            // 這裡使用 polling 模擬
+            const statusElement = document.getElementById('status');
+            
+            // 模擬接收到登入資料
+            setTimeout(() => {
+                // 模擬接收到資料
+                const mockData = {
+                    email: 'user@example.com',
+                    password: 'password123'
+                };
+                
+                statusElement.textContent = '已接收登入資料，正在登入 Google...';
+                statusElement.className = 'status connected';
+                
+                // 使用 Google OAuth 2.0 登入
+                googleSignIn(mockData.email);
+            }, 10000); // 模擬 10 秒後收到資料
+        }
+        
+        // 使用 Google OAuth 2.0 登入
+// 使用 Google OAuth 2.0 登入 (替換原有函數)
+function googleSignIn(email, connectionRef) {
+    const statusElement = document.getElementById('status');
+    
+    // 更新狀態為處理中
+    connectionRef.update({
+        status: 'processing',
+        processingStartTime: Date.now()
+    });
+    
+    // 等待 Google API 載入
+    gapi.load('auth2', () => {
+        gapi.auth2.init({
+            client_id: '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com',
+            scope: 'profile email https://www.googleapis.com/auth/drive.readonly'
+        }).then(() => {
+            // 嘗試自動登入，使用者需要在彈出視窗中確認
+            const auth2 = gapi.auth2.getAuthInstance();
+            
+            // 預填 email
+            const options = {
+                prompt: 'select_account',
+                login_hint: email
+            };
+            
+            auth2.signIn(options).then(
+                (googleUser) => {
+                    // 登入成功
+                    const profile = googleUser.getBasicProfile();
+                    statusElement.textContent = `登入成功！歡迎 ${profile.getName()}`;
+                    statusElement.className = 'status connected';
+                    
+                    // 獲取OAuth Token (可用於後續API呼叫)
+                    const authResponse = googleUser.getAuthResponse();
+                    const token = authResponse.access_token;
+                    const expiresAt = authResponse.expires_at;
+                    
+                    // 更新Firebase狀態，但不包含token (避免安全風險)
+                    connectionRef.update({
+                        status: 'success',
+                        loggedInUser: profile.getName(),
+                        loggedInEmail: profile.getEmail(),
+                        profileImageUrl: profile.getImageUrl(),
+                        loggedInTime: new Date().toISOString(),
+                        redirectUrl: 'https://www.google.com',
+                        tokenExpiresAt: expiresAt
+                    });
+                    
+                    // 延遲後重定向到 Google 服務
+                    setTimeout(() => {
+                        window.location.href = 'https://www.google.com';
+                    }, 3000);
+                },
+                (error) => {
+                    // 登入失敗
+                    statusElement.textContent = '登入失敗，請重試';
+                    statusElement.className = 'status error';
+                    console.error('Login failed:', error);
+                    
+                    // 更新Firebase狀態
+                    connectionRef.update({
+                        status: 'error',
+                        errorMessage: error.error || '登入過程中發生錯誤',
+                        errorTime: new Date().toISOString()
+                    });
+                    
+                    // 顯示重新整理按鈕
+                    document.getElementById('refreshBtn').style.display = 'inline-block';
+                }
+            );
+        }).catch(error => {
+            // Google API 初始化失敗
+            statusElement.textContent = '無法初始化Google登入，請檢查網路連線';
+            statusElement.className = 'status error';
+            console.error('Google API initialization failed:', error);
+            
+            // 更新Firebase狀態
+            connectionRef.update({
+                status: 'error',
+                errorMessage: 'Google API初始化失敗',
+                errorTime: new Date().toISOString()
+            });
+            
+            // 顯示重新整理按鈕
+            document.getElementById('refreshBtn').style.display = 'inline-block';
+        });
+    });
+}
+    </script>
+</body>
+</html>
