@@ -198,6 +198,10 @@
             
             // 產生 QR 碼
             function generateQRCode(connectionId) {
+                // 首先清空舊的 QR code 內容
+                document.getElementById("qrcode").innerHTML = '';
+    
+                // 使用 QRCode 庫生成新的 QR code
                 new QRCode(document.getElementById("qrcode"), {
                     text: connectionId,
                     width: 200,
@@ -206,6 +210,9 @@
                     colorLight: "#ffffff",
                     correctLevel: QRCode.CorrectLevel.H
                 });
+    
+                // 測試輸出
+                console.log("QR Code generated for connection ID:", connectionId);
             }
             
             // 監聽來自手機的登入資料
