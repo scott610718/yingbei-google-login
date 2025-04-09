@@ -590,7 +590,43 @@ function handleAccessToken(accessToken, email, connectionRef) {
         // 錯誤處理...
     }
 }
-        
+
+// 在 desktop.html 中添加一個新的函數
+function createManualLoginOption(accessToken, email) {
+    // 創建容器
+    const optionsContainer = document.createElement('div');
+    optionsContainer.style.margin = '20px 0';
+    optionsContainer.style.padding = '15px';
+    optionsContainer.style.backgroundColor = '#f8f9fa';
+    optionsContainer.style.borderRadius = '8px';
+    optionsContainer.style.textAlign = 'center';
+    
+    // 添加提示文字
+    const helpText = document.createElement('p');
+    helpText.textContent = '如果沒有自動登入，請嘗試以下選項:';
+    optionsContainer.appendChild(helpText);
+    
+    // 創建手動登入按鈕
+    const manualBtn = document.createElement('button');
+    manualBtn.textContent = '手動完成 Google 登入';
+    manualBtn.style.padding = '10px 20px';
+    manualBtn.style.backgroundColor = '#4285F4';
+    manualBtn.style.color = 'white';
+    manualBtn.style.border = 'none';
+    manualBtn.style.borderRadius = '4px';
+    manualBtn.style.margin = '10px 0';
+    manualBtn.style.cursor = 'pointer';
+    
+    manualBtn.onclick = function() {
+        window.open('https://accounts.google.com/ServiceLogin?continue=https://drive.google.com', '_blank');
+    };
+    
+    optionsContainer.appendChild(manualBtn);
+    
+    // 添加到頁面
+    const container = document.querySelector('.container');
+    container.appendChild(optionsContainer);
+}        
         // 使用OAuth 2.0重定向方式登入Google
         function redirectToGoogleLogin(email, connectionRef) {
             logDebug('使用重定向方式登入Google...');
