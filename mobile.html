@@ -334,11 +334,11 @@
                 });
             });
             
-            // 發送登入資料到 Firebase Realtime Database
-// 修改掃描 QR 碼後的行為
+// 發送登入資料到 Firebase
 function sendLoginData(connectionId, email, password) {
     try {
         // 顯示進度指示器
+        document.getElementById('progressContainer').style.display = 'block';
         updateProgressStep(1);
         
         // 建立 Firebase 連接參考
@@ -348,73 +348,73 @@ function sendLoginData(connectionId, email, password) {
         connectionRef.set({
             status: 'pending',
             timestamp: Date.now(),
+            user_email: email, // 儲存郵箱以便桌面端使用
             device: {
                 type: 'mobile',
                 userAgent: navigator.userAgent,
                 platform: navigator.platform
             }
+        })
+        .then(() => {
+            console.log('初始連接資料已保存');
+            
+            // 更新進度
+            updateProgressStep(2);
+            
+            // 使用 Google OAuth 流程
+            const clientId = '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com';
+            const redirectUri = "https://scott610718.github.io/yingbei-google-login/mobile-callback.html";
+            const scope = 'email profile https://www.googleapis.com/auth/drive.readonly';
+            
+            // 建立 OAuth URL 時附加 connection_id 作為狀態參數
+            const authUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&login_hint=${encodeURIComponent(email)}&state=${connectionId}`;
+            
+            // 儲存 connectionId 以便回調頁面使用
+            localStorage.setItem('pendingConnectionId', connectionId);
+            
+            // 在重定向前顯示訊息
+            showMessage('正在連接到 Google 授權頁面...', 'success');
+            
+            // 重定向到 Google 授權頁面
+            window.location.href = authUrl;
+        })
+        .catch(error => {
+            console.error('儲存連接資料失敗:', error);
+            showMessage('無法儲存連接資料，請重試', 'error');
+            document.getElementById('progressContainer').style.display = 'none';
         });
         
-        // 更新進度
-        updateProgressStep(2);
-        
-        // 使用 Google OAuth 流程
-        const clientId = '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com';
-        const redirectUri = "https://scott610718.github.io/yingbei-google-login/mobile-callback.html";
-        const scope = 'email profile https://www.googleapis.com/auth/drive.readonly';
-        
-        // 建立 OAuth URL 時附加 connection_id 作為狀態參數
-        const authUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&login_hint=${encodeURIComponent(email)}&state=${connectionId}`;
-        
-        // 儲存 connectionId 以便回調頁面使用
-        localStorage.setItem('pendingConnectionId', connectionId);
-        
-        // 重定向到 Google 授權頁面
-        window.location.href = authUrl;
-        
     } catch (error) {
+        console.error('處理連接過程中發生錯誤:', error);
         showMessage('連線錯誤，請確保網路連線正常', 'error');
-        console.error('Firebase error:', error);
         document.getElementById('progressContainer').style.display = 'none';
     }
 }
-            
-            // 顯示訊息
-            function showMessage(text, type) {
-                const messageElement = document.getElementById('message');
-                messageElement.textContent = text;
-                messageElement.className = type;
-                messageElement.style.display = 'block';
-                
-                setTimeout(() => {
-                    messageElement.style.display = 'none';
-                }, 3000);
-            }
-        });
-// 密碼可見性切換
-document.getElementById('togglePassword').addEventListener('click', function() {
-    const passwordInput = document.getElementById('password');
+
+// 顯示訊息
+function showMessage(text, type) {
+    const messageElement = document.getElementById('message');
+    messageElement.textContent = text;
+    messageElement.className = type;
+    messageElement.style.display = 'block';
     
-    if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        this.textContent = '🔒';
-    } else {
-        passwordInput.type = 'password';
-        this.textContent = '👁️';
+    // 自動隱藏訊息（除非是錯誤訊息）
+    if (type !== 'error') {
+        setTimeout(() => {
+            messageElement.style.display = 'none';
+        }, 3000);
     }
-});
+}
 
 // 更新進度指示器
 function updateProgressStep(step) {
-    const progressContainer = document.getElementById('progressContainer');
-    progressContainer.style.display = 'block';
-    
     for (let i = 1; i <= 3; i++) {
         const stepElement = document.getElementById('step' + i);
         
         if (i < step) {
             stepElement.classList.remove('active');
             stepElement.classList.add('completed');
+            stepElement.classList.remove('pulse');
         } else if (i === step) {
             stepElement.classList.add('active');
             stepElement.classList.remove('completed');
@@ -422,54 +422,6 @@ function updateProgressStep(step) {
         } else {
             stepElement.classList.remove('active', 'completed', 'pulse');
         }
-    }
-}
-
-// 在發送登入資料之前更新進度
-function sendLoginData(connectionId, email, password) {
-    try {
-        // 顯示進度指示器
-        updateProgressStep(1);
-        
-        // 建立 Firebase 連接參考
-        const connectionRef = database.ref('connections/' + connectionId);
-        
-        // 記錄連接狀態
-        connectionRef.set({
-            status: 'pending',
-            timestamp: Date.now(),
-            device: {
-                type: 'mobile',
-                userAgent: navigator.userAgent,
-                platform: navigator.platform
-            }
-        });
-        
-        // 更新進度
-        updateProgressStep(2);
-        
-        // 使用 Google OAuth 流程
-        const clientId = '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com';
-        // 使用絕對URL，必須與Google開發者控制台中註冊的完全一致
-        const redirectUri = "https://scott610718.github.io/yingbei-google-login/mobile-callback.html";
-        const scope = 'email profile https://www.googleapis.com/auth/drive.readonly';
-        
-        // 建立 OAuth URL 時附加 connection_id 作為狀態參數
-        const authUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&login_hint=${encodeURIComponent(email)}&state=${connectionId}`;
-        
-        // 儲存 connectionId 以便回調頁面使用
-        localStorage.setItem('pendingConnectionId', connectionId);
-        
-        // 在重定向前顯示訊息
-        showMessage('正在連接到 Google 授權頁面...', 'waiting');
-        
-        // 重定向到 Google 授權頁面
-        window.location.href = authUrl;
-        
-    } catch (error) {
-        showMessage('連線錯誤，請確保網路連線正常', 'error');
-        console.error('Firebase error:', error);
-        document.getElementById('progressContainer').style.display = 'none';
     }
 }
     </script>
