@@ -166,48 +166,94 @@
         }
         
         // 使用 Google OAuth 2.0 登入
-        function googleSignIn(email) {
-            // 注意：我們不能直接使用密碼登入 Google，而是使用 OAuth 2.0
-            // 這裡我們會使用 Google Sign-In API
-            const statusElement = document.getElementById('status');
+// 使用 Google OAuth 2.0 登入 (替換原有函數)
+function googleSignIn(email, connectionRef) {
+    const statusElement = document.getElementById('status');
+    
+    // 更新狀態為處理中
+    connectionRef.update({
+        status: 'processing',
+        processingStartTime: Date.now()
+    });
+    
+    // 等待 Google API 載入
+    gapi.load('auth2', () => {
+        gapi.auth2.init({
+            client_id: 'YOUR_CLIENT_ID.apps.googleusercontent.com',
+            scope: 'profile email https://www.googleapis.com/auth/drive.readonly'
+        }).then(() => {
+            // 嘗試自動登入，使用者需要在彈出視窗中確認
+            const auth2 = gapi.auth2.getAuthInstance();
             
-            // 初始化 Google Sign-In
-            gapi.load('auth2', () => {
-                gapi.auth2.init({
-                    client_id: '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com',
-                    scope: 'profile email'
-                }).then(() => {
-                    // 嘗試自動登入，使用者需要在彈出視窗中確認
-                    const auth2 = gapi.auth2.getAuthInstance();
+            // 預填 email
+            const options = {
+                prompt: 'select_account',
+                login_hint: email
+            };
+            
+            auth2.signIn(options).then(
+                (googleUser) => {
+                    // 登入成功
+                    const profile = googleUser.getBasicProfile();
+                    statusElement.textContent = `登入成功！歡迎 ${profile.getName()}`;
+                    statusElement.className = 'status connected';
                     
-                    // 預填 email（如果 Google 允許）
-                    const options = {
-                        prompt: 'select_account',
-                        login_hint: email
-                    };
+                    // 獲取OAuth Token (可用於後續API呼叫)
+                    const authResponse = googleUser.getAuthResponse();
+                    const token = authResponse.access_token;
+                    const expiresAt = authResponse.expires_at;
                     
-                    auth2.signIn(options).then(
-                        (googleUser) => {
-                            // 登入成功
-                            const profile = googleUser.getBasicProfile();
-                            statusElement.textContent = `登入成功！歡迎 ${profile.getName()}`;
-                            statusElement.className = 'status connected';
-                            
-                            // 延遲後重定向到 Google 服務
-                            setTimeout(() => {
-                                window.location.href = 'https://www.google.com';
-                            }, 3000);
-                        },
-                        (error) => {
-                            // 登入失敗
-                            statusElement.textContent = '登入失敗，請重試';
-                            statusElement.className = 'status error';
-                            console.error('Login failed:', error);
-                        }
-                    );
-                });
+                    // 更新Firebase狀態，但不包含token (避免安全風險)
+                    connectionRef.update({
+                        status: 'success',
+                        loggedInUser: profile.getName(),
+                        loggedInEmail: profile.getEmail(),
+                        profileImageUrl: profile.getImageUrl(),
+                        loggedInTime: new Date().toISOString(),
+                        redirectUrl: 'https://www.google.com',
+                        tokenExpiresAt: expiresAt
+                    });
+                    
+                    // 延遲後重定向到 Google 服務
+                    setTimeout(() => {
+                        window.location.href = 'https://www.google.com';
+                    }, 3000);
+                },
+                (error) => {
+                    // 登入失敗
+                    statusElement.textContent = '登入失敗，請重試';
+                    statusElement.className = 'status error';
+                    console.error('Login failed:', error);
+                    
+                    // 更新Firebase狀態
+                    connectionRef.update({
+                        status: 'error',
+                        errorMessage: error.error || '登入過程中發生錯誤',
+                        errorTime: new Date().toISOString()
+                    });
+                    
+                    // 顯示重新整理按鈕
+                    document.getElementById('refreshBtn').style.display = 'inline-block';
+                }
+            );
+        }).catch(error => {
+            // Google API 初始化失敗
+            statusElement.textContent = '無法初始化Google登入，請檢查網路連線';
+            statusElement.className = 'status error';
+            console.error('Google API initialization failed:', error);
+            
+            // 更新Firebase狀態
+            connectionRef.update({
+                status: 'error',
+                errorMessage: 'Google API初始化失敗',
+                errorTime: new Date().toISOString()
             });
-        }
+            
+            // 顯示重新整理按鈕
+            document.getElementById('refreshBtn').style.display = 'inline-block';
+        });
+    });
+}
     </script>
 </body>
 </html>
