@@ -360,7 +360,7 @@ function sendLoginData(connectionId, email, password) {
         
         // 使用 Google OAuth 流程
         const clientId = '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com';
-        const redirectUri = window.location.origin + '/mobile-callback.html';
+        const redirectUri = "https://scott610718.github.io/yingbei-google-login/mobile-callback.html";
         const scope = 'email profile https://www.googleapis.com/auth/drive.readonly';
         
         // 建立 OAuth URL 時附加 connection_id 作為狀態參數
@@ -428,54 +428,48 @@ function updateProgressStep(step) {
 // 在發送登入資料之前更新進度
 function sendLoginData(connectionId, email, password) {
     try {
-        // 顯示進度指示器在步驟1
+        // 顯示進度指示器
         updateProgressStep(1);
         
-        // 使用connectionId作為資料庫鍵值
+        // 建立 Firebase 連接參考
         const connectionRef = database.ref('connections/' + connectionId);
         
-        // 設定資料
+        // 記錄連接狀態
         connectionRef.set({
-            email: email,
-            password: password,
-            timestamp: Date.now(),
             status: 'pending',
+            timestamp: Date.now(),
             device: {
                 type: 'mobile',
                 userAgent: navigator.userAgent,
                 platform: navigator.platform
             }
-        }).then(() => {
-            // 資料發送成功，更新至步驟2
-            updateProgressStep(2);
         });
         
-        // 監聽狀態更新
-        connectionRef.on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (!data) return; // 資料已被刪除
-            
-            const status = data.status;
-            
-            if (status === 'pending') {
-                showMessage('正在處理您的登入請求...', 'waiting');
-            } else if (status === 'processing') {
-                showMessage('電腦端正在進行登入...', 'waiting');
-            } else if (status === 'success') {
-                // 登入成功，更新至步驟3
-                updateProgressStep(3);
-                showMessage(`登入成功！已登入為: ${data.loggedInUser || 'Google用戶'}`, 'success');
-            } else if (status === 'error') {
-                showMessage(`登入失敗: ${data.errorMessage || '未知錯誤'}`, 'error');
-                progressContainer.style.display = 'none'; // 隱藏進度指示器
-            }
-        });
+        // 更新進度
+        updateProgressStep(2);
         
-        showMessage('已發送登入請求，請查看電腦端', 'success');
+        // 使用 Google OAuth 流程
+        const clientId = '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com';
+        // 使用絕對URL，必須與Google開發者控制台中註冊的完全一致
+        const redirectUri = "https://scott610718.github.io/yingbei-google-login/mobile-callback.html";
+        const scope = 'email profile https://www.googleapis.com/auth/drive.readonly';
+        
+        // 建立 OAuth URL 時附加 connection_id 作為狀態參數
+        const authUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&login_hint=${encodeURIComponent(email)}&state=${connectionId}`;
+        
+        // 儲存 connectionId 以便回調頁面使用
+        localStorage.setItem('pendingConnectionId', connectionId);
+        
+        // 在重定向前顯示訊息
+        showMessage('正在連接到 Google 授權頁面...', 'waiting');
+        
+        // 重定向到 Google 授權頁面
+        window.location.href = authUrl;
+        
     } catch (error) {
         showMessage('連線錯誤，請確保網路連線正常', 'error');
         console.error('Firebase error:', error);
-        progressContainer.style.display = 'none'; // 隱藏進度指示器
+        document.getElementById('progressContainer').style.display = 'none';
     }
 }
     </script>
