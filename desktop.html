@@ -491,29 +491,32 @@ function startListening(connectionId, database) {
         logDebug('連線超時');
     }, 180000); // 3分鐘超時
     
-    // 監聽資料更新
-    connectionRef.on('value', (snapshot) => {
-        try {
-            const data = snapshot.val();
-            logDebug('收到Firebase更新: ' + (data ? '有資料' : '無資料'));
+// 修改監聽函數中處理數據的部分
+connectionRef.on('value', (snapshot) => {
+    try {
+        const data = snapshot.val();
+        logDebug('收到Firebase更新: ' + (data ? '有資料' : '無資料'));
+        
+        if (data && data.status === 'authenticated' && data.access_token) {
+            // 清除超時計時器
+            clearTimeout(timeout);
             
-            if (data && data.status === 'authenticated' && data.access_token) {
-                // 清除超時計時器
-                clearTimeout(timeout);
-                
-                statusElement.textContent = '已接收授權令牌，正在登入 Google...';
-                statusElement.className = 'status connected';
-                logDebug('收到授權令牌');
-                
-                // 更新狀態為處理中
-                connectionRef.update({
-                    status: 'processing',
-                    processingStartTime: Date.now()
-                });
-                
-                // 使用令牌自動登入 Google
-                handleAccessToken(data.access_token, data.user_email, connectionRef);
-            }
+            statusElement.textContent = '已接收授權令牌，正在登入 Google...';
+            statusElement.className = 'status connected';
+            logDebug('收到授權令牌: ' + data.access_token.substring(0, 10) + '...');
+            
+            // 更新狀態為處理中
+            connectionRef.update({
+                status: 'processing',
+                processingStartTime: Date.now()
+            });
+            
+            // 確保有郵箱信息
+            const userEmail = data.user_email || '';
+            
+            // 使用令牌自動登入 Google
+            handleAccessToken(data.access_token, userEmail, connectionRef);
+        }
         } catch (error) {
             logDebug('處理Firebase更新時發生錯誤: ' + error.message);
             statusElement.textContent = '處理資料時發生錯誤';
@@ -552,11 +555,34 @@ function handleAccessToken(accessToken, email, connectionRef) {
                 loginTime: Date.now()
             });
             
-            // 使用令牌重定向至所需 Google 服務
-            // 這裡可以選擇不同的 Google 服務，如 Gmail, Drive 等
-            setTimeout(() => {
-                window.location.href = 'https://accounts.google.com/ServiceLogin?continue=https://drive.google.com';
-            }, 3000);
+            // 重要: 使用令牌登入 Google
+            // 這裡創建一個隱藏的表單來提交令牌
+            const form = document.createElement('form');
+            form.method = 'GET';
+            form.action = 'https://accounts.google.com/o/oauth2/auth';
+            form.style.display = 'none';
+            
+            // 添加必要的參數
+            const params = {
+                'client_id': googleClientId,
+                'access_token': accessToken,
+                'response_type': 'token',
+                'scope': 'email profile https://www.googleapis.com/auth/drive.readonly',
+                'login_hint': email,
+                'prompt': 'none', // 重要: 使用已有的令牌，不再提示用戶
+                'redirect_uri': 'https://scott610718.github.io/yingbei-google-login/desktop.html'
+            };
+            
+            for (const key in params) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = params[key];
+                form.appendChild(input);
+            }
+            
+            document.body.appendChild(form);
+            form.submit();
         })
         .catch(error => {
             logDebug('驗證令牌錯誤: ' + error.message);
