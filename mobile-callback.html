@@ -74,29 +74,35 @@
                 headers: { 'Authorization': `Bearer ${accessToken}` }
             })
             .then(response => response.json())
-            .then(userData => {
-                // 將訪問令牌發送到 Firebase
-                const connectionRef = database.ref('connections/' + connectionId);
-                connectionRef.update({
-                    access_token: accessToken,
-                    user_email: userData.email,
-                    user_name: userData.name,
-                    status: 'authenticated',
-                    authentication_time: Date.now()
-                });
-                
-                messageElement.textContent = '授權成功！請返回到桌面端查看。';
-                messageElement.className = 'message success';
-                
-                // 清除暫存的連接 ID
-                localStorage.removeItem('pendingConnectionId');
-            })
-            .catch(error => {
-                console.error('Error fetching user data:', error);
-                messageElement.textContent = '獲取用戶資料失敗。';
-                messageElement.className = 'message error';
-            });
+// 修改mobile-callback.html中的成功處理部分
+.then(userData => {
+    // 將訪問令牌發送到 Firebase
+    const connectionRef = database.ref('connections/' + connectionId);
+    connectionRef.update({
+        access_token: accessToken,
+        user_email: userData.email,
+        user_name: userData.name,
+        status: 'authenticated',
+        authentication_time: Date.now(),
+        token_type: params.get('token_type'),
+        expires_in: params.get('expires_in')
+    });
+    
+    messageElement.textContent = '授權成功！請返回到桌面端查看。';
+    messageElement.className = 'message success';
+    
+    // 清除暫存的連接 ID
+    localStorage.removeItem('pendingConnectionId');
+    
+    // 額外的確認機制
+    setTimeout(() => {
+        connectionRef.once('value', snapshot => {
+            if (snapshot.val() && snapshot.val().status === 'success') {
+                messageElement.textContent = '授權已被桌面端接收並處理！';
+            }
         });
+    }, 5000);
+})
     </script>
 </body>
 </html>
