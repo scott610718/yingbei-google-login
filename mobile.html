@@ -134,54 +134,62 @@
             document.getElementById('status').className = 'status success';
         }
 
-        document.getElementById('scanButton').addEventListener('click', function() {
-            const scanner = document.getElementById('scanner');
-            scanner.style.display = 'block';
+document.getElementById('scanButton').addEventListener('click', function() {
+    const scanner = document.getElementById('scanner');
+    scanner.style.display = 'block';
+    
+    const video = document.getElementById('video');
+    
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+        .then(function(stream) {
+            video.srcObject = stream;
             
-            const video = document.getElementById('video');
+            // 確保視頻元素可見且播放中
+            video.style.display = 'block';
+            video.play();
+            
+            // 實例化 QR 解碼器
             const qrDecoder = new QrCodeDecoder();
+            console.log("QR 解碼器初始化");
             
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-                .then(function(stream) {
-                    video.srcObject = stream;
-                    video.play();
-                    
-                    function scanQRCode() {
-                        qrDecoder.decodeFromVideo(video)
-                            .then(function(result) {
-                                if (result.data) {
-                                    try {
-                                        const qrData = JSON.parse(result.data);
-                                        
-                                        // 停止視訊流
-                                        stream.getTracks().forEach(track => track.stop());
-                                        scanner.style.display = 'none';
-                                        
-                                        // 發送 Token 到 Firebase
-                                        sendTokenToDesktop(qrData.sessionId);
-                                    } catch (e) {
-                                        // 無效的 QR Code 數據，繼續掃描
-                                        setTimeout(scanQRCode, 500);
-                                    }
-                                } else {
-                                    // 繼續掃描
-                                    setTimeout(scanQRCode, 500);
-                                }
-                            })
-                            .catch(function(error) {
-                                // 繼續掃描
+            function scanQRCode() {
+                console.log("掃描中...");
+                qrDecoder.decodeFromVideo(video)
+                    .then(function(result) {
+                        console.log("掃描結果:", result);
+                        if (result && result.data) {
+                            try {
+                                const qrData = JSON.parse(result.data);
+                                console.log("解析的數據:", qrData);
+                                
+                                // 停止視頻流
+                                stream.getTracks().forEach(track => track.stop());
+                                
+                                // 發送 Token 到 Firebase
+                                sendTokenToDesktop(qrData.sessionId);
+                            } catch (e) {
+                                console.error("QR 解析錯誤:", e);
                                 setTimeout(scanQRCode, 500);
-                            });
-                    }
-                    
-                    scanQRCode();
-                })
-                .catch(function(error) {
-                    console.error("無法存取相機: ", error);
-                    document.getElementById('status').textContent = "無法存取相機，請確保您已授權使用相機權限";
-                    document.getElementById('status').className = 'status error';
-                });
+                            }
+                        } else {
+                            setTimeout(scanQRCode, 500);
+                        }
+                    })
+                    .catch(function(error) {
+                        console.error("掃描錯誤:", error);
+                        setTimeout(scanQRCode, 500);
+                    });
+            }
+            
+            // 開始掃描
+            scanQRCode();
+        })
+        .catch(function(error) {
+            console.error("相機錯誤:", error);
+            document.getElementById('status').textContent = "無法存取相機，請確保您已授權使用相機權限";
+            document.getElementById('status').className = 'status error';
         });
+});
 
         function sendTokenToDesktop(sessionId) {
             // 將授權資訊保存到 Firebase
