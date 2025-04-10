@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Google 登入 - 手機端</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-decoder/0.3.3/qrcode-decoder.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="https://accounts.google.com/gsi/client"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -91,8 +93,25 @@
     </div>
 
     <script>
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "YOUR_FIREBASE_API_KEY",
+            authDomain: "YOUR_FIREBASE_AUTH_DOMAIN",
+            databaseURL: "YOUR_FIREBASE_DATABASE_URL",
+            projectId: "YOUR_FIREBASE_PROJECT_ID",
+            storageBucket: "YOUR_FIREBASE_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_FIREBASE_MESSAGING_SENDER_ID",
+            appId: "YOUR_FIREBASE_APP_ID"
+        };
+        
+        // 初始化 Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        
         let googleToken = null;
         let userEmail = null;
+        let userName = null;
+        let userPicture = null;
 
         function handleCredentialResponse(response) {
             // 獲取 Google 的 ID Token
@@ -102,7 +121,10 @@
             const base64Url = googleToken.split('.')[1];
             const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
             const payload = JSON.parse(atob(base64));
+            
             userEmail = payload.email;
+            userName = payload.name || 'Google 用戶';
+            userPicture = payload.picture || '';
             
             document.getElementById('loginSection').style.display = 'none';
             document.getElementById('authenticatedSection').style.display = 'block';
@@ -127,14 +149,19 @@
                         qrDecoder.decodeFromVideo(video)
                             .then(function(result) {
                                 if (result.data) {
-                                    const qrData = JSON.parse(result.data);
-                                    
-                                    // 停止視訊流
-                                    stream.getTracks().forEach(track => track.stop());
-                                    scanner.style.display = 'none';
-                                    
-                                    // 發送 Token 到桌面應用
-                                    sendTokenToDesktop(qrData.sessionId, qrData.endpoint);
+                                    try {
+                                        const qrData = JSON.parse(result.data);
+                                        
+                                        // 停止視訊流
+                                        stream.getTracks().forEach(track => track.stop());
+                                        scanner.style.display = 'none';
+                                        
+                                        // 發送 Token 到 Firebase
+                                        sendTokenToDesktop(qrData.sessionId);
+                                    } catch (e) {
+                                        // 無效的 QR Code 數據，繼續掃描
+                                        setTimeout(scanQRCode, 500);
+                                    }
                                 } else {
                                     // 繼續掃描
                                     setTimeout(scanQRCode, 500);
@@ -155,36 +182,40 @@
                 });
         });
 
-        function sendTokenToDesktop(sessionId, endpoint) {
-            const data = {
-                sessionId: sessionId,
+        function sendTokenToDesktop(sessionId) {
+            // 將授權資訊保存到 Firebase
+            const sessionRef = database.ref('sessions/' + sessionId);
+            
+            const authData = {
+                status: 'authorized',
                 googleToken: googleToken,
                 email: userEmail,
-                timestamp: new Date().getTime()
+                name: userName,
+                picture: userPicture,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
             };
             
-            fetch(endpoint, {
-                method: 'POST',
-                mode: 'cors',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
+            sessionRef.set(authData)
+                .then(() => {
                     document.getElementById('status').textContent = "授權成功！電腦端正在登入...";
                     document.getElementById('status').className = 'status success';
-                } else {
-                    document.getElementById('status').textContent = "傳送失敗: " + data.message;
+                    
+                    // 監聽授權使用狀態
+                    sessionRef.child('used').on('value', (snapshot) => {
+                        if (snapshot.val() === true) {
+                            document.getElementById('status').textContent = "電腦端已成功接收授權並登入";
+                        }
+                    });
+                    
+                    // 設置 15 分鐘後自動刪除
+                    setTimeout(() => {
+                        sessionRef.remove();
+                    }, 15 * 60 * 1000);
+                })
+                .catch((error) => {
+                    document.getElementById('status').textContent = "傳送失敗: " + error.message;
                     document.getElementById('status').className = 'status error';
-                }
-            })
-            .catch(error => {
-                document.getElementById('status').textContent = "連接失敗，請重試";
-                document.getElementById('status').className = 'status error';
-            });
+                });
         }
     </script>
 </body>
