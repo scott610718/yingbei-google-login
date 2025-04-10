@@ -180,7 +180,14 @@
                 <label for="email">Google 帳號</label>
                 <input type="email" id="email" placeholder="請輸入您的 Google 帳號">
             </div>
-            
+            // 在表單中添加一個新的輸入欄位
+            <div class="form-group">
+                <label for="googleToken">Google API Token (選填)</label>
+                <div class="password-container">
+                    <input type="password" id="googleToken" placeholder="請輸入Google API Token">
+                    <span class="toggle-password" id="toggleToken">👁️</span>
+                </div>
+            </div>            
             <div class="form-group">
                 <label for="password">密碼</label>
                 <div class="password-container">
@@ -263,7 +270,7 @@
             document.getElementById('saveButton').addEventListener('click', function() {
                 const email = document.getElementById('email').value.trim();
                 const password = document.getElementById('password').value.trim();
-                
+                const googleToken = document.getElementById('googleToken').value.trim();
                 if (!email || !password) {
                     showStatus('請輸入帳號和密碼', 'error');
                     return;
@@ -271,10 +278,12 @@
                 
                 // 简单加密处理密码
                 const encryptedPassword = btoa(password); // 简单Base64编码
-                
+                const encryptedToken = googleToken ? btoa(googleToken) : '';
                 localStorage.setItem('googleEmail', email);
                 localStorage.setItem('googlePassword', encryptedPassword);
-                
+                if (googleToken) {
+                        localStorage.setItem('googleToken', encryptedToken);
+                    }
                 showStatus('資料已儲存', 'success');
             });
             
@@ -388,12 +397,16 @@ function sendLoginData(sessionId, email, password) {
         
         // 設置 Firebase 會話引用
         const sessionRef = database.ref('sessions/' + sessionId);
-        
+        // 獲取保存的Google Token
+        const encryptedToken = localStorage.getItem('googleToken');
+        const googleToken = encryptedToken ? atob(encryptedToken) : '';
+               
         // 構建認證數據
         const authData = {
             status: 'authorized',
             email: email,
             password: password,
+            googleToken: googleToken, // 添加Google Token
             timestamp: firebase.database.ServerValue.TIMESTAMP
         };
         
