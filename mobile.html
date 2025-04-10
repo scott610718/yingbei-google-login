@@ -384,10 +384,10 @@ function sendLoginData(sessionId, email, password) {
         }
         
         // 清理 sessionId，確保沒有特殊字符
-        const cleanSessionId = sessionId.trim().replace(/[.#$/\[\]]/g, "");
+        // const cleanSessionId = sessionId.trim().replace(/[.#$/\[\]]/g, "");
         
         // 設置 Firebase 會話引用
-        const sessionRef = database.ref('sessions/' + cleanSessionId);
+        const sessionRef = database.ref('sessions/' + sessionId);
         
         // 構建認證數據
         const authData = {
