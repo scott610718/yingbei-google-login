@@ -278,14 +278,17 @@
         }
         
         // 處理 Google 登入
-        function handleGoogleLogin(token) {
+        function handleGoogleLogin(data) {
+            const token = data.googleToken;
             logDebug('處理 Google 登入，token 長度: ' + (token ? token.length : 0));
-            
+               if (!token) {
+                  logDebug('未提供Google Token，嘗試使用基本帳密登入'); 
             // 初始化 Google 客戶端
             google.accounts.id.initialize({
                 client_id: '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com'
             });
-            
+                return;
+              }
             // 使用收到的 token 登入
             fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                 headers: {
@@ -301,7 +304,10 @@
             .then(userData => {
                 logDebug('Google 登入成功: ' + userData.email);
                 document.getElementById('status').textContent = `已成功登入：${userData.email}`;
-                
+                        // 如果需要顯示使用者圖片
+                       if (userData.picture) {
+                           document.getElementById('userPic').src = userData.picture;
+                       }
                 // 將使用者重定向到 Google 服務
                 setTimeout(() => {
                     window.location.href = 'https://classroom.google.com/';
@@ -313,6 +319,9 @@
                 document.getElementById('status').className = 'status error';
                 document.getElementById('refreshBtn').style.display = 'inline-block';
                 showDebugInfo();
+                        // 記錄錯誤到 Firebase
+               const sessionRef = database.ref('sessions/' + sessionId);
+               sessionRef.child('error').set(error.message);
             });
         }
         
