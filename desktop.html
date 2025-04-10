@@ -278,7 +278,7 @@
         }
         
         // 處理 Google 登入
-        function handleGoogleLogin(data) {
+        function handleGoogleLogin(token) {
             const token = data.googleToken;
             logDebug('處理 Google 登入，token 長度: ' + (token ? token.length : 0));
                if (!token) {
