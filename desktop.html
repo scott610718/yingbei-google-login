@@ -125,12 +125,17 @@
         // 設置會話 ID
         const sessionId = generateSessionId();
         
-       // 生成 QR Code 
+       // 生成 QR Code
+       const sessionId = generateSessionId();
        const qrData = JSON.stringify({
            sessionId: sessionId
        });
 
        const qrcodeContainer = document.getElementById('qrcode');
+       // 確保 qrcodeContainer 是空的
+       qrcodeContainer.innerHTML = '';
+
+       // 直接使用字符串作為 QRCode 的文本內容
        new QRCode(qrcodeContainer, {
            text: qrData,
            width: 256,
@@ -140,6 +145,8 @@
            correctLevel: QRCode.CorrectLevel.H
        });
 
+// 調試 - 檢查 QR code 是否生成
+console.log("QR code 生成數據:", qrData);
         // 監聽 Firebase 授權狀態
         const sessionRef = database.ref('sessions/' + sessionId);
         sessionRef.on('value', (snapshot) => {
