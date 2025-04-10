@@ -125,28 +125,56 @@
         // 設置會話 ID
         const sessionId = generateSessionId();
         
-       // 生成 QR Code
-       const sessionId = generateSessionId();
-       const qrData = JSON.stringify({
-           sessionId: sessionId
-       });
+// 替換原有的 QR code 生成代碼
+const sessionId = generateSessionId();
+console.log("生成會話 ID:", sessionId);
 
-       const qrcodeContainer = document.getElementById('qrcode');
-       // 確保 qrcodeContainer 是空的
-       qrcodeContainer.innerHTML = '';
+// 清空 QR code 容器
+const qrcodeContainer = document.getElementById('qrcode');
+qrcodeContainer.innerHTML = '';
 
-       // 直接使用字符串作為 QRCode 的文本內容
-       new QRCode(qrcodeContainer, {
-           text: qrData,
-           width: 256,
-           height: 256,
-           colorDark: "#4285f4",
-           colorLight: "#ffffff",
-           correctLevel: QRCode.CorrectLevel.H
-       });
-
-// 調試 - 檢查 QR code 是否生成
-console.log("QR code 生成數據:", qrData);
+// 檢查 QRCode 是否存在
+if (typeof QRCode === 'undefined') {
+    console.error("QRCode 庫未成功加載！");
+    document.getElementById('status').textContent = "QR Code 庫加載失敗，請刷新頁面";
+    document.getElementById('status').className = 'status error';
+} else {
+    try {
+        // 使用簡單字符串測試 QR code 生成
+        const testQR = new QRCode(qrcodeContainer, {
+            text: '{"sessionId":"' + sessionId + '"}',
+            width: 256,
+            height: 256,
+            colorDark: "#4285f4",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
+        });
+        
+        console.log("QR code 已生成");
+        
+        // 檢查 QR code 是否真的添加到 DOM
+        setTimeout(() => {
+            if (qrcodeContainer.children.length === 0) {
+                console.error("QR code 未添加到 DOM");
+                // 使用替代方法生成
+                const img = document.createElement('img');
+                img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=' + 
+                          encodeURIComponent('{"sessionId":"' + sessionId + '"}');
+                qrcodeContainer.appendChild(img);
+            }
+        }, 500);
+    } catch (error) {
+        console.error("QR code 生成錯誤:", error);
+        document.getElementById('status').textContent = "QR Code 生成失敗: " + error.message;
+        document.getElementById('status').className = 'status error';
+        
+        // 使用替代方法生成
+        const img = document.createElement('img');
+        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=' + 
+                  encodeURIComponent('{"sessionId":"' + sessionId + '"}');
+        qrcodeContainer.appendChild(img);
+    }
+}
         // 監聽 Firebase 授權狀態
         const sessionRef = database.ref('sessions/' + sessionId);
         sessionRef.on('value', (snapshot) => {
