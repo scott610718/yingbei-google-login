@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google 登入 - 手機端</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-decoder/0.3.3/qrcode-decoder.min.js"></script>
+    <title>營北國中自動登入 - 手機端</title>
+    <!-- 更换为更稳定的QR扫描库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.4/html5-qrcode.min.js"></script>
     <script src="https://accounts.google.com/gsi/client"></script>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -28,6 +29,11 @@
             text-align: center;
             color: #4285f4;
         }
+        h2 {
+            text-align: center;
+            color: #555;
+            margin-bottom: 20px;
+        }
         .button {
             background-color: #4285f4;
             color: white;
@@ -41,26 +47,126 @@
             margin: 20px 0;
         }
         #scanner {
-            display: none;
-            margin-top: 20px;
-        }
-        #video {
             width: 100%;
+            height: 250px;
+            border: 2px solid #ddd;
             border-radius: 8px;
+            overflow: hidden;
+            margin: 20px 0;
+            display: none;
         }
         .status {
             text-align: center;
             margin-top: 20px;
             font-weight: bold;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
         }
         .success {
             color: green;
+            background-color: #e8f5e9;
         }
         .error {
             color: red;
+            background-color: #ffebee;
+        }
+        .waiting {
+            color: #4285f4;
+            background-color: #e3f2fd;
         }
         #loginSection {
             margin-top: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #4285F4;
+            box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+        }
+        .password-container {
+            position: relative;
+        }
+        .toggle-password {
+            position: absolute;
+            right: 10px;
+            top: 12px;
+            cursor: pointer;
+            color: #555;
+        }
+        /* 進度指示器 */
+        .progress-container {
+            margin-top: 20px;
+            display: none;
+        }
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            position: relative;
+        }
+        .progress-steps::before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            right: 20px;
+            height: 2px;
+            background: #ddd;
+            z-index: 1;
+        }
+        .step {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            position: relative;
+            z-index: 2;
+        }
+        .step.active {
+            background: #4285F4;
+            color: white;
+        }
+        .step.completed {
+            background: #34A853;
+            color: white;
+        }
+        .step-label {
+            position: absolute;
+            top: 35px;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            font-size: 12px;
+            color: #555;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .pulse {
+            animation: pulse 1.5s infinite;
         }
     </style>
 </head>
@@ -70,25 +176,41 @@
         <h2>手機端登入</h2>
         
         <div id="loginSection">
-            <p>請先使用您的 Google 帳號登入：</p>
-            <div id="g_id_onload"
-                data-client_id="130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com"
-                data-context="signin"
-                data-ux_mode="popup"
-                data-callback="handleCredentialResponse">
+            <div class="form-group">
+                <label for="email">Google 帳號</label>
+                <input type="email" id="email" placeholder="請輸入您的 Google 帳號">
             </div>
-            <div class="g_id_signin" data-type="standard"></div>
+            
+            <div class="form-group">
+                <label for="password">密碼</label>
+                <div class="password-container">
+                    <input type="password" id="password" placeholder="請輸入您的密碼">
+                    <span class="toggle-password" id="togglePassword">👁️</span>
+                </div>
+            </div>
+            
+            <button class="button" id="saveButton">儲存資料</button>
+            <button class="button" id="scanButton" style="background-color: #34A853;">掃描 QR Code</button>
         </div>
 
-        <div id="authenticatedSection" style="display:none;">
-            <p>Google 帳號已登入，請掃描電腦端顯示的 QR Code：</p>
-            <button class="button" id="scanButton">開始掃描 QR Code</button>
-            
-            <div id="scanner">
-                <video id="video" autoplay playsinline></video>
+        <div id="scanner"></div>
+        <div id="status" class="status"></div>
+    </div>
+    
+    <div class="progress-container" id="progressContainer">
+        <div class="progress-steps">
+            <div class="step active" id="step1">
+                1
+                <div class="step-label">掃描QR碼</div>
             </div>
-            
-            <div id="status" class="status"></div>
+            <div class="step" id="step2">
+                2
+                <div class="step-label">傳送資料</div>
+            </div>
+            <div class="step" id="step3">
+                3
+                <div class="step-label">登入完成</div>
+            </div>
         </div>
     </div>
 
@@ -109,122 +231,233 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
         
-        let googleToken = null;
-        let userEmail = null;
-        let userName = null;
-        let userPicture = null;
-
-        function handleCredentialResponse(response) {
-            // 獲取 Google 的 ID Token
-            googleToken = response.credential;
+        // HTML5 QR Code 实例
+        let html5QrCode;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // 检查是否有保存的账号信息
+            const savedEmail = localStorage.getItem('googleEmail');
+            const savedPassword = localStorage.getItem('googlePassword');
             
-            // 解析 token 獲取用戶資訊
-            const base64Url = googleToken.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const payload = JSON.parse(atob(base64));
-            
-            userEmail = payload.email;
-            userName = payload.name || 'Google 用戶';
-            userPicture = payload.picture || '';
-            
-            document.getElementById('loginSection').style.display = 'none';
-            document.getElementById('authenticatedSection').style.display = 'block';
-            
-            document.getElementById('status').textContent = `已登入：${userEmail}`;
-            document.getElementById('status').className = 'status success';
-        }
-
-document.getElementById('scanButton').addEventListener('click', function() {
-    const scanner = document.getElementById('scanner');
-    scanner.style.display = 'block';
-    
-    const video = document.getElementById('video');
-    
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-        .then(function(stream) {
-            video.srcObject = stream;
-            
-            // 確保視頻元素可見且播放中
-            video.style.display = 'block';
-            video.play();
-            
-            // 實例化 QR 解碼器
-            const qrDecoder = new QrCodeDecoder();
-            console.log("QR 解碼器初始化");
-            
-            function scanQRCode() {
-                console.log("掃描中...");
-                qrDecoder.decodeFromVideo(video)
-                    .then(function(result) {
-                        console.log("掃描結果:", result);
-                        if (result && result.data) {
-                            try {
-                                const qrData = JSON.parse(result.data);
-                                console.log("解析的數據:", qrData);
-                                
-                                // 停止視頻流
-                                stream.getTracks().forEach(track => track.stop());
-                                
-                                // 發送 Token 到 Firebase
-                                sendTokenToDesktop(qrData.sessionId);
-                            } catch (e) {
-                                console.error("QR 解析錯誤:", e);
-                                setTimeout(scanQRCode, 500);
-                            }
-                        } else {
-                            setTimeout(scanQRCode, 500);
-                        }
-                    })
-                    .catch(function(error) {
-                        console.error("掃描錯誤:", error);
-                        setTimeout(scanQRCode, 500);
-                    });
+            if (savedEmail) {
+                document.getElementById('email').value = savedEmail;
+                if (savedPassword) {
+                    document.getElementById('password').value = '********';
+                }
             }
             
-            // 開始掃描
-            scanQRCode();
-        })
-        .catch(function(error) {
-            console.error("相機錯誤:", error);
-            document.getElementById('status').textContent = "無法存取相機，請確保您已授權使用相機權限";
-            document.getElementById('status').className = 'status error';
-        });
-});
-
-        function sendTokenToDesktop(sessionId) {
-            // 將授權資訊保存到 Firebase
-            const sessionRef = database.ref('sessions/' + sessionId);
+            // 密码可见性切换
+            document.getElementById('togglePassword').addEventListener('click', function() {
+                const passwordInput = document.getElementById('password');
+                
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    this.textContent = '🔒';
+                } else {
+                    passwordInput.type = 'password';
+                    this.textContent = '👁️';
+                }
+            });
             
-            const authData = {
-                status: 'authorized',
-                googleToken: googleToken,
-                email: userEmail,
-                name: userName,
-                picture: userPicture,
-                timestamp: firebase.database.ServerValue.TIMESTAMP
-            };
+            // 保存按钮事件
+            document.getElementById('saveButton').addEventListener('click', function() {
+                const email = document.getElementById('email').value.trim();
+                const password = document.getElementById('password').value.trim();
+                
+                if (!email || !password) {
+                    showStatus('請輸入帳號和密碼', 'error');
+                    return;
+                }
+                
+                // 简单加密处理密码
+                const encryptedPassword = btoa(password); // 简单Base64编码
+                
+                localStorage.setItem('googleEmail', email);
+                localStorage.setItem('googlePassword', encryptedPassword);
+                
+                showStatus('資料已儲存', 'success');
+            });
             
-            sessionRef.set(authData)
-                .then(() => {
-                    document.getElementById('status').textContent = "授權成功！電腦端正在登入...";
-                    document.getElementById('status').className = 'status success';
-                    
-                    // 監聽授權使用狀態
-                    sessionRef.child('used').on('value', (snapshot) => {
-                        if (snapshot.val() === true) {
-                            document.getElementById('status').textContent = "電腦端已成功接收授權並登入";
-                        }
-                    });
-                    
-                    // 設置 15 分鐘後自動刪除
-                    setTimeout(() => {
-                        sessionRef.remove();
-                    }, 15 * 60 * 1000);
-                })
-                .catch((error) => {
-                    document.getElementById('status').textContent = "傳送失敗: " + error.message;
-                    document.getElementById('status').className = 'status error';
+            // 扫描按钮事件
+            document.getElementById('scanButton').addEventListener('click', function() {
+                const scanner = document.getElementById('scanner');
+                
+                // 如果扫描器已显示，则关闭
+                if (scanner.style.display === 'block') {
+                    if (html5QrCode && html5QrCode.isScanning) {
+                        html5QrCode.stop().then(() => {
+                            scanner.style.display = 'none';
+                            document.getElementById('scanButton').textContent = '掃描 QR Code';
+                        }).catch(err => {
+                            console.error('停止掃描錯誤:', err);
+                        });
+                    } else {
+                        scanner.style.display = 'none';
+                        document.getElementById('scanButton').textContent = '掃描 QR Code';
+                    }
+                    return;
+                }
+                
+                // 检查是否有保存的登录信息
+                const email = localStorage.getItem('googleEmail');
+                const encryptedPassword = localStorage.getItem('googlePassword');
+                
+                if (!email || !encryptedPassword) {
+                    showStatus('請先儲存您的登入資料', 'error');
+                    return;
+                }
+                
+                // 显示扫描器和进度指示器
+                scanner.style.display = 'block';
+                document.getElementById('scanButton').textContent = '停止掃描';
+                updateProgressStep(1);
+                
+                // 初始化并启动QR码扫描器
+                if (!html5QrCode) {
+                    html5QrCode = new Html5Qrcode("scanner");
+                }
+                
+                const qrConfig = { fps: 10, qrbox: { width: 200, height: 200 } };
+                
+                html5QrCode.start(
+                    { facingMode: "environment" },
+                    qrConfig,
+                    onQrCodeScan
+                ).catch(err => {
+                    showStatus('無法啟動相機，請確認已授權相機權限', 'error');
+                    console.error('相機啟動失敗:', err);
+                    scanner.style.display = 'none';
+                    document.getElementById('scanButton').textContent = '掃描 QR Code';
                 });
+            });
+        });
+        
+        // QR码扫描成功回调
+        function onQrCodeScan(qrCodeMessage) {
+            try {
+                // 尝试解析QR码数据为JSON
+                const qrData = JSON.parse(qrCodeMessage);
+                console.log("解析的QR碼數據:", qrData);
+                
+                if (qrData && qrData.sessionId) {
+                    // 停止扫描
+                    if (html5QrCode) {
+                        html5QrCode.stop().then(() => {
+                            document.getElementById('scanner').style.display = 'none';
+                            document.getElementById('scanButton').textContent = '掃描 QR Code';
+                            
+                            // 获取保存的登录信息
+                            const email = localStorage.getItem('googleEmail');
+                            const encryptedPassword = localStorage.getItem('googlePassword');
+                            
+                            if (email && encryptedPassword) {
+                                // 解码密码
+                                const password = atob(encryptedPassword);
+                                
+                                // 发送到Firebase
+                                sendLoginData(qrData.sessionId, email, password);
+                            } else {
+                                showStatus('找不到已儲存的登入資料', 'error');
+                            }
+                        }).catch(err => {
+                            console.error('停止掃描錯誤:', err);
+                        });
+                    }
+                } else {
+                    showStatus('無效的QR碼數據', 'error');
+                }
+            } catch (error) {
+                console.error('QR碼解析失敗:', error);
+                showStatus('QR碼解析失敗，請重試', 'error');
+            }
+        }
+        
+        // 发送登录数据到Firebase
+        function sendLoginData(sessionId, email, password) {
+            try {
+                updateProgressStep(2);
+                showStatus('正在發送登入資料...', 'waiting');
+                
+                // 设置Firebase会话引用
+                const sessionRef = database.ref('sessions/' + sessionId);
+                
+                // 构建认证数据
+                const authData = {
+                    status: 'authorized',
+                    email: email,
+                    password: password, // 注意：实际应用中应该使用更安全的方式处理密码
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                // 发送到Firebase
+                sessionRef.set(authData)
+                    .then(() => {
+                        updateProgressStep(3);
+                        showStatus('授權成功！電腦端正在登入...', 'success');
+                        
+                        // 监听使用状态
+                        sessionRef.child('used').on('value', (snapshot) => {
+                            if (snapshot.val() === true) {
+                                showStatus('電腦端已成功接收授權並登入', 'success');
+                                
+                                // 15分钟后自动删除会话数据
+                                setTimeout(() => {
+                                    sessionRef.remove();
+                                }, 15 * 60 * 1000);
+                            }
+                        });
+                        
+                        // 监听错误状态
+                        sessionRef.child('error').on('value', (snapshot) => {
+                            if (snapshot.val()) {
+                                showStatus('登入失敗: ' + snapshot.val(), 'error');
+                            }
+                        });
+                    })
+                    .catch((error) => {
+                        showStatus('傳送失敗: ' + error.message, 'error');
+                        document.getElementById('progressContainer').style.display = 'none';
+                    });
+            } catch (error) {
+                showStatus('連線錯誤: ' + error.message, 'error');
+                document.getElementById('progressContainer').style.display = 'none';
+            }
+        }
+        
+        // 显示状态信息
+        function showStatus(message, type) {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+            statusElement.style.display = 'block';
+            
+            // 如果不是等待或成功类型的消息，3秒后自动隐藏
+            if (type !== 'waiting' && type !== 'success') {
+                setTimeout(() => {
+                    statusElement.style.display = 'none';
+                }, 3000);
+            }
+        }
+        
+        // 更新进度指示器
+        function updateProgressStep(step) {
+            const progressContainer = document.getElementById('progressContainer');
+            progressContainer.style.display = 'block';
+            
+            for (let i = 1; i <= 3; i++) {
+                const stepElement = document.getElementById('step' + i);
+                
+                if (i < step) {
+                    stepElement.classList.remove('active');
+                    stepElement.classList.add('completed');
+                } else if (i === step) {
+                    stepElement.classList.add('active');
+                    stepElement.classList.remove('completed');
+                    stepElement.classList.add('pulse');
+                } else {
+                    stepElement.classList.remove('active', 'completed', 'pulse');
+                }
+            }
         }
     </script>
 </body>
