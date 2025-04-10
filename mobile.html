@@ -372,57 +372,71 @@
             }
         }
         
-        // 发送登录数据到Firebase
-        function sendLoginData(sessionId, email, password) {
-            try {
-                updateProgressStep(2);
-                showStatus('正在發送登入資料...', 'waiting');
-                
-                // 设置Firebase会话引用
-                const sessionRef = database.ref('sessions/' + sessionId);
-                
-                // 构建认证数据
-                const authData = {
-                    status: 'authorized',
-                    email: email,
-                    password: password, // 注意：实际应用中应该使用更安全的方式处理密码
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                };
-                
-                // 发送到Firebase
-                sessionRef.set(authData)
-                    .then(() => {
-                        updateProgressStep(3);
-                        showStatus('授權成功！電腦端正在登入...', 'success');
-                        
-                        // 监听使用状态
-                        sessionRef.child('used').on('value', (snapshot) => {
-                            if (snapshot.val() === true) {
-                                showStatus('電腦端已成功接收授權並登入', 'success');
-                                
-                                // 15分钟后自动删除会话数据
-                                setTimeout(() => {
-                                    sessionRef.remove();
-                                }, 15 * 60 * 1000);
-                            }
-                        });
-                        
-                        // 监听错误状态
-                        sessionRef.child('error').on('value', (snapshot) => {
-                            if (snapshot.val()) {
-                                showStatus('登入失敗: ' + snapshot.val(), 'error');
-                            }
-                        });
-                    })
-                    .catch((error) => {
-                        showStatus('傳送失敗: ' + error.message, 'error');
-                        document.getElementById('progressContainer').style.display = 'none';
-                    });
-            } catch (error) {
-                showStatus('連線錯誤: ' + error.message, 'error');
-                document.getElementById('progressContainer').style.display = 'none';
-            }
+// 发送登录数据到Firebase
+function sendLoginData(sessionId, email, password) {
+    try {
+        updateProgressStep(2);
+        showStatus('正在發送登入資料...', 'waiting');
+        
+        // 確保 sessionId 有正確格式
+        if (!sessionId || !sessionId.trim()) {
+            throw new Error("無效的 Session ID");
         }
+        
+        // 清理 sessionId，確保沒有特殊字符
+        const cleanSessionId = sessionId.trim().replace(/[.#$/\[\]]/g, "");
+        
+        // 設置 Firebase 會話引用
+        const sessionRef = database.ref('sessions/' + cleanSessionId);
+        
+        // 構建認證數據
+        const authData = {
+            status: 'authorized',
+            email: email,
+            password: password,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        };
+        
+        // 先嘗試讀取，確認 session 存在
+        sessionRef.once('value')
+            .then((snapshot) => {
+                // 如果 session 不存在或已經被使用
+                if (!snapshot.exists()) {
+                    throw new Error("Session 不存在或已過期");
+                }
+                
+                // 發送到 Firebase
+                return sessionRef.update(authData);
+            })
+            .then(() => {
+                updateProgressStep(3);
+                showStatus('授權成功！電腦端正在登入...', 'success');
+                
+                // 監聽使用狀態
+                sessionRef.child('used').on('value', (snapshot) => {
+                    if (snapshot.val() === true) {
+                        showStatus('電腦端已成功接收授權並登入', 'success');
+                    }
+                });
+                
+                // 監聽錯誤狀態
+                sessionRef.child('error').on('value', (snapshot) => {
+                    if (snapshot.val()) {
+                        showStatus('登入失敗: ' + snapshot.val(), 'error');
+                    }
+                });
+            })
+            .catch((error) => {
+                console.error("Firebase 寫入錯誤:", error);
+                showStatus('傳送失敗: ' + error.message, 'error');
+                document.getElementById('progressContainer').style.display = 'none';
+            });
+    } catch (error) {
+        console.error("傳送資料錯誤:", error);
+        showStatus('連線錯誤: ' + error.message, 'error');
+        document.getElementById('progressContainer').style.display = 'none';
+    }
+}
         
         // 显示状态信息
         function showStatus(message, type) {
