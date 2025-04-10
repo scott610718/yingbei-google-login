@@ -125,20 +125,20 @@
         // 設置會話 ID
         const sessionId = generateSessionId();
         
-        // 生成 QR Code 
-        const qrData = {
-            sessionId: sessionId
-        };
-        
-        const qrcodeContainer = document.getElementById('qrcode');
-        const qrcode = new QRCode(qrcodeContainer, {
-            text: JSON.stringify(qrData),
-            width: 256,
-            height: 256,
-            colorDark: "#4285f4",
-            colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.H
-        });
+       // 生成 QR Code 
+       const qrData = JSON.stringify({
+           sessionId: sessionId
+       });
+
+       const qrcodeContainer = document.getElementById('qrcode');
+       new QRCode(qrcodeContainer, {
+           text: qrData,
+           width: 256,
+           height: 256,
+           colorDark: "#4285f4",
+           colorLight: "#ffffff",
+           correctLevel: QRCode.CorrectLevel.H
+       });
 
         // 監聽 Firebase 授權狀態
         const sessionRef = database.ref('sessions/' + sessionId);
