@@ -231,6 +231,11 @@
         // 監聽 Firebase 授權狀態
         function listenForAuthorization(sessionId) {
             const sessionRef = database.ref('sessions/' + sessionId);
+                // 確保session存在
+                sessionRef.set({
+                    created: firebase.database.ServerValue.TIMESTAMP,
+                    status: 'waiting'
+                });
             const statusElement = document.getElementById('status');
             
             // 設置超時
