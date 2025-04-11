@@ -155,127 +155,120 @@
         let database;
         let sessionId;
         
-        // 檢查是否成功加載QRCode庫
-        function checkQRCodeLibrary() {
-            if (typeof QRCode === 'undefined') {
-                logDebug('錯誤: QRCode 庫未正確載入');
-                document.getElementById('status').textContent = 'QR Code 庫載入失敗';
-                document.getElementById('status').className = 'status error';
-                return false;
-            }
-            logDebug('QRCode 庫已成功載入');
-            return true;
-        }
+function checkQRCodeLibrary() {
+    if (typeof QRCode === 'undefined' || typeof QRCode !== 'function') {
+        logDebug('錯誤: QRCode庫未正確載入');
+        document.getElementById('status').textContent = 'QR Code庫載入失敗';
+        document.getElementById('status').className = 'status error';
+        return false;
+    }
+    
+    // 檢查正確性層級是否可用
+    if (!QRCode.CorrectLevel) {
+        logDebug('警告: QRCode.CorrectLevel未定義，將使用預設值');
+    }
+    
+    logDebug('QRCode庫已成功載入');
+    return true;
+}
         
         // 生成會話 ID
         function generateSessionId() {
             return 'session_' + Math.random().toString(36).substr(2, 9);
         }
         
-        // 產生 QR Code
-        function generateQRCode(sessionId) {
-            const qrcodeContainer = document.getElementById('qrcode');
-            
-            // 清空舊的 QR code
-            qrcodeContainer.innerHTML = '';
-            
-            try {
-                // 創建要傳遞的 JSON 數據
-                const qrData = JSON.stringify({
-                    sessionId: sessionId
-                });
-                
-                logDebug('QR Code 數據: ' + qrData);
-                
-                if (typeof QRCode === 'undefined') {
-                    throw new Error('QRCode 庫未加載');
-                }
-                
-                // 創建新的 QR code
-                new QRCode(qrcodeContainer, {
-                    text: qrData,
-                    width: 256,
-                    height: 256,
-                    colorDark: "#4285f4",
-                    colorLight: "#ffffff",
-                    correctLevel: QRCode.CorrectLevel.H
-                });
-                
-                // 檢查 QR code 是否成功生成
-                setTimeout(() => {
-                    if (qrcodeContainer.children.length === 0) {
-                        logDebug('QR 碼生成失敗，嘗試使用備用方法');
-                        // 使用外部服務生成 QR code
-                        const img = document.createElement('img');
-                        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=' + 
-                                encodeURIComponent(qrData);
-                        img.alt = 'QR Code';
-                        qrcodeContainer.appendChild(img);
-                        showDebugInfo();
-                    } else {
-                        logDebug('QR 碼成功生成');
-                    }
-                }, 500);
-            } catch (error) {
-                logDebug('生成 QR 碼錯誤: ' + error.message);
-                // 使用外部服務生成 QR code
+// 修改generateQRCode函數中的錯誤處理部分
+function generateQRCode(sessionId) {
+    const qrcodeContainer = document.getElementById('qrcode');
+    qrcodeContainer.innerHTML = '';
+    
+    try {
+        const qrData = JSON.stringify({
+            sessionId: sessionId
+        });
+        
+        logDebug('QR Code 數據: ' + qrData);
+        
+        // 確保QRCode庫已正確載入
+        if (typeof QRCode === 'function') {
+            // 創建新的QR code
+            new QRCode(qrcodeContainer, {
+                text: qrData,
+                width: 256,
+                height: 256,
+                colorDark: "#4285f4",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel ? QRCode.CorrectLevel.H : 3 // 提供回退值
+            });
+        } else {
+            throw new Error('QRCode 庫未正確載入');
+        }
+        
+        // 檢查QR code是否成功生成
+        setTimeout(() => {
+            if (qrcodeContainer.children.length === 0) {
+                logDebug('QR碼生成失敗，使用備用方法');
+                // 使用外部服務生成QR code
                 const img = document.createElement('img');
                 img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=' + 
-                        encodeURIComponent(JSON.stringify({sessionId: sessionId}));
+                        encodeURIComponent(qrData);
                 img.alt = 'QR Code';
                 qrcodeContainer.appendChild(img);
                 showDebugInfo();
+            } else {
+                logDebug('QR碼成功生成');
             }
-        }
-        
+        }, 500);
+    } catch (error) {
+        logDebug('生成QR碼錯誤: ' + error.message);
+        // 使用備用方法
+        const img = document.createElement('img');
+        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=' + 
+                encodeURIComponent(JSON.stringify({sessionId: sessionId}));
+        img.alt = 'QR Code';
+        qrcodeContainer.appendChild(img);
+        showDebugInfo();
+    }
+}
        
-// 監聽 Firebase 授權狀態
+// 修改listenForAuthorization函數
 function listenForAuthorization(sessionId) {
     const sessionRef = database.ref('sessions/' + sessionId);
-    // ... existing code ...
     
+    // 測試會話連接
+    sessionRef.once('value')
+        .then((snapshot) => {
+            if (snapshot.exists()) {
+                logDebug('成功連接到Firebase會話: ' + sessionId);
+            } else {
+                logDebug('會話不存在，嘗試創建');
+                return sessionRef.set({
+                    created: firebase.database.ServerValue.TIMESTAMP,
+                    status: 'pending'
+                });
+            }
+        })
+        .catch(error => {
+            logDebug('Firebase連接錯誤: ' + error.message);
+            document.getElementById('status').textContent = 'Firebase連接失敗，請刷新頁面';
+            document.getElementById('status').className = 'status error';
+            showDebugInfo();
+        });
+    
+    // 監聽變化
     sessionRef.on('value', (snapshot) => {
         const data = snapshot.val();
-        logDebug('收到 Firebase 更新: ' + (data ? JSON.stringify(data) : '無數據'));
+        logDebug('收到Firebase更新: ' + (data ? JSON.stringify(data) : '無數據'));
         
         if (data && data.status === 'authorized') {
-            // ... existing code ...
-            
-            // 新增 Google 一鍵登入按鈕
-            logDebug('設置 Google 一鍵登入按鈕');
-            
-            // 創建一個容器用於放置登入按鈕
-            const googleSignInContainer = document.createElement('div');
-            googleSignInContainer.id = 'googleSignInContainer';
-            googleSignInContainer.style.marginTop = '20px';
-            googleSignInContainer.style.textAlign = 'center';
-            
-            // 在狀態顯示下方添加按鈕容器
-            const statusElement = document.getElementById('status');
-            statusElement.parentNode.insertBefore(googleSignInContainer, statusElement.nextSibling);
-            
-            // 初始化 Google 身份服務
-            google.accounts.id.initialize({
-                client_id: '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com',
-                callback: handleGoogleCredentialResponse,
-                auto_select: true,
-                cancel_on_tap_outside: false
-            });
-            
-            // 渲染按鈕
-            google.accounts.id.renderButton(
-                googleSignInContainer,
-                { theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'rectangular' }
-            );
-            
-            // 嘗試自動顯示一鍵登入提示
-            google.accounts.id.prompt();
-            
-            // 標記為已使用
-            sessionRef.child('used').set(true);
+            // 原有授權處理代碼...
         }
     }, (error) => {
-        // ... existing error handling ...
+        logDebug('Firebase監聽錯誤: ' + error.message);
+        document.getElementById('status').textContent = 'Firebase連接中斷，請刷新頁面';
+        document.getElementById('status').className = 'status error';
+        document.getElementById('refreshBtn').style.display = 'inline-block';
+        showDebugInfo();
     });
 }
 
@@ -485,32 +478,45 @@ function useGoogleCredential(credential) {
         });
 
         
-        // 初始化應用
-        function initApp() {
-            try {
-                logDebug('初始化 Firebase');
-                // 初始化 Firebase
-                firebase.initializeApp(firebaseConfig);
-                database = firebase.database();
-                
-                // 生成會話 ID
-                sessionId = generateSessionId();
-                logDebug('生成會話 ID: ' + sessionId);
-                
-                // 產生 QR Code
-                generateQRCode(sessionId);
-                
-                // 開始監聽授權
-                listenForAuthorization(sessionId);
-                
-                logDebug('初始化完成');
-            } catch (error) {
-                logDebug('初始化失敗: ' + error.message);
-                document.getElementById('status').textContent = '系統初始化失敗，請刷新頁面';
-                document.getElementById('status').className = 'status error';
-                showDebugInfo();
-            }
-        }
+// 在initApp函數中添加會話創建確認
+function initApp() {
+    try {
+        logDebug('初始化Firebase');
+        firebase.initializeApp(firebaseConfig);
+        database = firebase.database();
+        
+        // 生成會話ID
+        sessionId = generateSessionId();
+        logDebug('生成會話ID: ' + sessionId);
+        
+        // 在Firebase中創建會話
+        const sessionRef = database.ref('sessions/' + sessionId);
+        sessionRef.set({
+            created: firebase.database.ServerValue.TIMESTAMP,
+            status: 'pending'
+        }).then(() => {
+            logDebug('會話成功創建在Firebase');
+            
+            // 產生QR Code
+            generateQRCode(sessionId);
+            
+            // 開始監聽授權
+            listenForAuthorization(sessionId);
+            
+            logDebug('初始化完成');
+        }).catch(error => {
+            logDebug('Firebase會話創建失敗: ' + error.message);
+            document.getElementById('status').textContent = 'Firebase連接失敗，請刷新頁面';
+            document.getElementById('status').className = 'status error';
+            showDebugInfo();
+        });
+    } catch (error) {
+        logDebug('初始化失敗: ' + error.message);
+        document.getElementById('status').textContent = '系統初始化失敗，請刷新頁面';
+        document.getElementById('status').className = 'status error';
+        showDebugInfo();
+    }
+}
     </script>
 </body>
 </html>
