@@ -283,7 +283,12 @@
                 localStorage.setItem('googlePassword', encryptedPassword);
                 if (googleToken) {
                         localStorage.setItem('googleToken', encryptedToken);
-                    }
+                        console.log("Token saved, length: " + googleToken.length);
+                  } else {
+                         // 清除舊的 token
+                         localStorage.removeItem('googleToken');
+                         console.log("No token provided, cleared old token");
+                     }
                 showStatus('資料已儲存', 'success');
             });
             
