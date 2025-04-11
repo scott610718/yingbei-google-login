@@ -250,8 +250,7 @@
                 const data = snapshot.val();
                 logDebug('收到 Firebase 更新: ' + (data ? JSON.stringify(data) : '無數據'));
                 
-                if (data && data.status === 'authorized' && !data.processed) {
-                    sessionRef.child('processed').set(true);
+                if (data && data.status === 'authorized') {
                     // 清除超時計時器
                     clearTimeout(timeout);
                     
@@ -269,9 +268,6 @@
                     
                     // 標記為已使用
                     sessionRef.child('used').set(true);
-                    setTimeout(() => {
-                       refreshQRCode();  // 呼叫現有的重新生成QR碼函數
-                    }, 5000);  // 5秒延遲讓用戶看到成功訊息
                 }
             }, (error) => {
                 logDebug('Firebase 監聽錯誤: ' + error.message);
@@ -282,7 +278,7 @@
         }
         
         // 處理 Google 登入
-        function handleGoogleLogin(token) {
+        function handleGoogleLogin(data) {
             const token = data.googleToken;
             logDebug('處理 Google 登入，token 長度: ' + (token ? token.length : 0));
                if (!token) {
@@ -327,24 +323,6 @@
                const sessionRef = database.ref('sessions/' + sessionId);
                sessionRef.child('error').set(error.message);
             });
-            .finally(() => {
-             / 添加這個部分：在登入嘗試（無論成功與否）2-3秒後重新生成QR碼
-                   setTimeout(() => {
-                       // 生成新的會話 ID
-                   sessionId = generateSessionId();
-            
-                       // 產生新的 QR Code
-                   generateQRCode(sessionId);
-                       
-                       // 重新開始監聽
-                   listenForAuthorization(sessionId);
-            
-                      // 更新狀態
-                   const statusElement = document.getElementById('status');
-                   statusElement.textContent = '等待手機掃描登入...';
-                   statusElement.className = 'status waiting';
-            }, 3000);  // 3秒後重新生成
-    });
         }
         
         // 重新整理 QR Code
