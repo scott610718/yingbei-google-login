@@ -232,62 +232,99 @@
 // 監聽 Firebase 授權狀態
 function listenForAuthorization(sessionId) {
     const sessionRef = database.ref('sessions/' + sessionId);
-    // 確保session存在
-    sessionRef.set({
-        created: firebase.database.ServerValue.TIMESTAMP,
-        status: 'waiting'
-    });
-    const statusElement = document.getElementById('status');
-    
-    // 設置超時
-    const timeout = setTimeout(() => {
-        statusElement.textContent = "QR Code 已過期，請重新產生";
-        statusElement.className = 'status error';
-        document.getElementById('refreshBtn').style.display = 'inline-block';
-        logDebug('連接超時');
-    }, 5 * 60 * 1000); // 5分鐘超時
+    // ... existing code ...
     
     sessionRef.on('value', (snapshot) => {
         const data = snapshot.val();
         logDebug('收到 Firebase 更新: ' + (data ? JSON.stringify(data) : '無數據'));
         
         if (data && data.status === 'authorized') {
-            // 清除超時計時器
-            clearTimeout(timeout);
+            // ... existing code ...
             
-            statusElement.textContent = "授權成功！正在登入 Google...";
-            statusElement.className = 'status success';
+            // 新增 Google 一鍵登入按鈕
+            logDebug('設置 Google 一鍵登入按鈕');
             
-            // 顯示用戶資訊
-            if (data.picture) document.getElementById('userPic').src = data.picture;
-            document.getElementById('userName').textContent = data.name || '用戶';
-            document.getElementById('userEmail').textContent = data.email;
-            document.getElementById('userInfo').style.display = 'block';
+            // 創建一個容器用於放置登入按鈕
+            const googleSignInContainer = document.createElement('div');
+            googleSignInContainer.id = 'googleSignInContainer';
+            googleSignInContainer.style.marginTop = '20px';
+            googleSignInContainer.style.textAlign = 'center';
             
-            // 直接從data取得token
-            const token = data.googleToken;
-            logDebug('接收到的 Google Token: ' + (token ? token.substring(0, 10) + '...' : '無'));
+            // 在狀態顯示下方添加按鈕容器
+            const statusElement = document.getElementById('status');
+            statusElement.parentNode.insertBefore(googleSignInContainer, statusElement.nextSibling);
             
-            // 使用 Google 的 token 進行登入
-            if (token && token.length > 0) {
-                handleGoogleLogin(token);
-            } else {
-                logDebug('未收到有效的 Google Token');
-                sessionRef.child('error').set('未收到有效的 Google Token');
-                statusElement.textContent = "Google 登入失敗: 未收到有效的 Token";
-                statusElement.className = 'status error';
-                document.getElementById('refreshBtn').style.display = 'inline-block';
-            }
+            // 初始化 Google 身份服務
+            google.accounts.id.initialize({
+                client_id: '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com',
+                callback: handleGoogleCredentialResponse,
+                auto_select: true,
+                cancel_on_tap_outside: false
+            });
+            
+            // 渲染按鈕
+            google.accounts.id.renderButton(
+                googleSignInContainer,
+                { theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'rectangular' }
+            );
+            
+            // 嘗試自動顯示一鍵登入提示
+            google.accounts.id.prompt();
             
             // 標記為已使用
             sessionRef.child('used').set(true);
         }
     }, (error) => {
-        logDebug('Firebase 監聽錯誤: ' + error.message);
-        statusElement.textContent = "連接錯誤，請重新整理頁面";
-        statusElement.className = 'status error';
-        showDebugInfo();
+        // ... existing error handling ...
     });
+}
+
+// 處理 Google 身份回調
+function handleGoogleCredentialResponse(response) {
+    logDebug('收到 Google 身份回調');
+    
+    if (response && response.credential) {
+        const idToken = response.credential;
+        logDebug('成功獲取 Google ID 令牌，長度: ' + idToken.length);
+        
+        // 使用 ID 令牌獲取用戶信息
+        fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: {
+                'Authorization': `Bearer ${idToken}`
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('無法驗證 ID 令牌');
+            }
+            return response.json();
+        })
+        .then(userData => {
+            logDebug('Google 登入成功: ' + userData.email);
+            document.getElementById('status').textContent = `已成功登入：${userData.email}`;
+            
+            // 如果需要顯示使用者圖片
+            if (userData.picture) {
+                document.getElementById('userPic').src = userData.picture;
+                document.getElementById('userInfo').style.display = 'block';
+            }
+            
+            // 將使用者重定向到 Google 服務
+            setTimeout(() => {
+                window.location.href = 'https://classroom.google.com/';
+            }, 2000);
+        })
+        .catch(error => {
+            logDebug('Google 登入錯誤: ' + error.message);
+            document.getElementById('status').textContent = "Google 登入失敗: " + error.message;
+            document.getElementById('status').className = 'status error';
+            showDebugInfo();
+        });
+    } else {
+        logDebug('未能獲取 Google 憑證');
+        document.getElementById('status').textContent = "Google 登入失敗: 未能獲取憑證";
+        document.getElementById('status').className = 'status error';
+    }
 }
         
 // 處理 Google 登入
