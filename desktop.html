@@ -302,15 +302,60 @@ function handleGoogleLogin(token) {
         return;
     }
 
-    // 使用收到的 token 登入
+    // Token 看起來是重新整理令牌，需要先獲取訪問令牌
+    if (token.startsWith('GOCSPX-')) {
+        logDebug('偵測到 OAuth 重新整理令牌格式，嘗試獲取訪問令牌');
+        
+        // 使用 Google OAuth 客戶端 ID 和重新整理令牌獲取訪問令牌
+        const clientId = '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com';
+        const clientSecret = ''; // 如果需要，從安全位置獲取
+        
+        // 嘗試使用重新整理令牌進行流程
+        logDebug('初始化 Google 帳號登入');
+        
+        // 使用 Google Identity Services 進行登入
+        google.accounts.id.initialize({
+            client_id: clientId,
+            callback: (response) => {
+                if (response && response.credential) {
+                    logDebug('Google 身份服務成功獲取憑證');
+                    useGoogleCredential(response.credential);
+                } else {
+                    logDebug('未能獲取 Google 憑證');
+                    document.getElementById('status').textContent = "Google 登入失敗: 未能獲取憑證";
+                    document.getElementById('status').className = 'status error';
+                    document.getElementById('refreshBtn').style.display = 'inline-block';
+                }
+            }
+        });
+        
+        // 顯示 Google 登入按鈕
+        google.accounts.id.renderButton(
+            document.createElement('div'),  // 創建一個不可見的按鈕
+            { theme: 'outline', size: 'large' }
+        );
+        
+        // 自動提示一鍵登入
+        google.accounts.id.prompt();
+        
+        return;
+    }
+    
+    // 如果是標準訪問令牌，直接使用
+    useGoogleCredential(token);
+}
+
+// 使用 Google 憑證訪問用戶信息
+function useGoogleCredential(credential) {
+    // 使用憑證獲取用戶資訊
     fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${credential}`
         }
     })
     .then(response => {
         if (!response.ok) {
-            throw new Error('Token 可能已過期或無效');
+            throw new Error('無法驗證憑證');
         }
         return response.json();
     })
