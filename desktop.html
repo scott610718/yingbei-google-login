@@ -228,7 +228,7 @@
             }
         }
         
-        // 監聽 Firebase 授權狀態
+       
 // 監聽 Firebase 授權狀態
 function listenForAuthorization(sessionId) {
     const sessionRef = database.ref('sessions/' + sessionId);
@@ -341,7 +341,11 @@ function handleGoogleLogin(token) {
         // 重新整理 QR Code
         function refreshQRCode() {
             logDebug('重新產生 QR Code');
-            
+                // 清除狀態
+           document.getElementById('status').className = 'status waiting';
+           document.getElementById('status').textContent = '等待手機掃描登入...';
+               // 隱藏用戶資訊
+           document.getElementById('userInfo').style.display = 'none';
             // 生成新的會話 ID
             sessionId = generateSessionId();
             
@@ -397,6 +401,36 @@ function handleGoogleLogin(token) {
                 }
             });
         });
+        // 保存按钮事件
+        document.getElementById('saveButton').addEventListener('click', function() {
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const googleToken = document.getElementById('googleToken').value.trim();
+    
+            if (!email || !password) {
+                showStatus('請輸入帳號和密碼', 'error');
+                return;
+            }
+    
+            // 简单加密处理密码
+            const encryptedPassword = btoa(password); // 简单Base64编码
+            const encryptedToken = googleToken ? btoa(googleToken) : '';
+    
+            localStorage.setItem('googleEmail', email);
+            localStorage.setItem('googlePassword', encryptedPassword);
+    
+            // 確保 token 有正確保存
+            if (googleToken) {
+                localStorage.setItem('googleToken', encryptedToken);
+                console.log("Token saved, length: " + googleToken.length);
+            } else {
+                // 清除舊的 token
+                localStorage.removeItem('googleToken');
+                console.log("No token provided, cleared old token");
+            }
+    
+            showStatus('資料已儲存', 'success');
+        });        
         
         // 初始化應用
         function initApp() {
