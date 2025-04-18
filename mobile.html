@@ -7,8 +7,6 @@
     <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.2.1/html5-qrcode.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
-    <!-- Google OAuth 用戶端函式庫 -->
-    <script src="https://accounts.google.com/gsi/client"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -26,25 +24,6 @@
             width: 100%;
             max-width: 400px;
         }
-        .form-section {
-            margin-top: 20px;
-            width: 100%;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input, textarea {
-            width: 100%;
-            padding: 8px;
-            box-sizing: border-box;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
         button {
             padding: 10px 20px;
             background-color: #4285f4;
@@ -53,11 +32,13 @@
             border-radius: 4px;
             cursor: pointer;
             margin-top: 10px;
+            font-size: 16px;
         }
         .status {
             margin: 20px 0;
             padding: 10px;
             border-radius: 4px;
+            width: 100%;
         }
         .waiting {
             background-color: #f0f0f0;
@@ -69,6 +50,18 @@
         .error {
             background-color: #f8d7da;
             color: #721c24;
+        }
+        #debug {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            text-align: left;
+            font-family: monospace;
+            width: 100%;
+            max-height: 150px;
+            overflow-y: auto;
+            display: none;
         }
     </style>
 </head>
@@ -85,36 +78,27 @@
             <button id="startScanBtn">開始掃描</button>
         </div>
         
-        <div class="form-section" id="formSection" style="display:none;">
-            <h2>額外資訊</h2>
-            <div class="form-group">
-                <label for="userName">姓名</label>
-                <input type="text" id="userName" placeholder="請輸入您的姓名">
-            </div>
-            <div class="form-group">
-                <label for="userNote">備註</label>
-                <textarea id="userNote" rows="3" placeholder="請輸入備註訊息"></textarea>
-            </div>
-            
-            <!-- Google 登入按鈕 -->
-            <div id="googleSignInContainer">
-                <button id="googleSignInBtn">使用 Google 登入</button>
-            </div>
+        <div id="authContainer" style="display:none; width:100%; text-align:center;">
+            <h2>Google 授權</h2>
+            <p>掃描成功! 請點擊下方按鈕進行 Google 登入</p>
+            <button id="googleSignInBtn">使用 Google 登入</button>
         </div>
+        
+        <div id="debug"></div>
+        <button id="showDebugBtn" style="margin-top: 20px; background-color: #6c757d;">顯示除錯資訊</button>
     </div>
 
     <script>
         // Firebase 配置
         const firebaseConfig = {
             // 請替換為您的 Firebase 配置
-           apiKey: "AIzaSyArF8xncLwA3osSQ_o6yWIyuOc0TMrXRTY",
-           authDomain: "yingpei--login.firebaseapp.com",
-           databaseURL: "https://yingpei--login-default-rtdb.firebaseio.com",
-           projectId: "yingpei--login",
-           storageBucket: "yingpei--login.firebasestorage.app",
-           messagingSenderId: "261477282402",
-           appId: "1:261477282402:web:557f0be058e07cd642173b",
-           measurementId: "G-EB9PR17TJL"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
 
         // 初始化 Firebase
@@ -125,6 +109,15 @@
         let html5QrCode;
         let sessionData = null;
 
+        // 紀錄除錯資訊
+        function log(message) {
+            const debugElement = document.getElementById('debug');
+            const time = new Date().toLocaleTimeString();
+            debugElement.innerHTML += `<div>[${time}] ${message}</div>`;
+            debugElement.scrollTop = debugElement.scrollHeight;
+            console.log(message);
+        }
+
         // 更新狀態消息
         function updateStatus(message, type) {
             const statusContainer = document.getElementById('statusContainer');
@@ -132,6 +125,7 @@
             
             statusMessage.textContent = message;
             statusContainer.className = `status ${type}`;
+            log(`狀態更新: ${message}`);
         }
 
         // 初始化 QR Code 掃描器
@@ -159,17 +153,19 @@
                 
                 // 解析 QR Code 數據
                 const qrData = JSON.parse(decodedText);
+                log(`掃描成功，解析數據: ${JSON.stringify(qrData)}`);
                 
                 if (qrData.sessionId && qrData.action === 'googleAuth') {
+                    // 儲存 sessionId 到本地存儲和全局變數
                     sessionData = qrData;
-                    updateStatus('QR Code 掃描成功! 請填寫資訊並授權 Google 登入', 'success');
+                    localStorage.setItem('sessionData', JSON.stringify(qrData));
+                    log(`已儲存 sessionId: ${qrData.sessionId}`);
                     
-                    // 顯示表單
+                    updateStatus('QR Code 掃描成功! 請點擊下方按鈕進行 Google 登入', 'success');
+                    
+                    // 隱藏掃描器，顯示授權按鈕
                     document.getElementById('scannerContainer').style.display = 'none';
-                    document.getElementById('formSection').style.display = 'block';
-                    
-                    // 設置 Google 登入按鈕事件
-                    document.getElementById('googleSignInBtn').addEventListener('click', startGoogleAuth);
+                    document.getElementById('authContainer').style.display = 'block';
                 } else {
                     throw new Error('QR Code 格式無效');
                 }
@@ -187,82 +183,122 @@
 
         // 啟動 Google 授權流程
         function startGoogleAuth() {
+            if (!sessionData) {
+                updateStatus('錯誤: 沒有有效的 sessionId', 'error');
+                return;
+            }
+            
             // Google OAuth 客戶端 ID
-            const clientId = '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com';
+            const clientId = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
             const redirectUri = window.location.origin + window.location.pathname;
             
             // 定義需要的範圍
             const scope = 'profile email';
             
+            // 將 sessionId 加入 state 參數，以便重新導向後保留
+            const state = btoa(JSON.stringify(sessionData));
+            
             // 構建授權 URL
-            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}`;
+            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
+            
+            log(`開始 Google 授權流程，導向至: ${authUrl}`);
             
             // 重定向到 Google 授權頁面
             window.location.href = authUrl;
         }
 
-        // 解析 URL 中的令牌
-        function parseAccessToken() {
+        // 解析 URL 中的令牌和狀態參數
+        function parseUrlParams() {
             const hash = window.location.hash.substring(1);
             const params = new URLSearchParams(hash);
-            return params.get('access_token');
+            
+            const token = params.get('access_token');
+            const state = params.get('state');
+            
+            log(`解析 URL 參數 - token: ${token ? '存在' : '不存在'}, state: ${state ? '存在' : '不存在'}`);
+            
+            let stateData = null;
+            if (state) {
+                try {
+                    stateData = JSON.parse(atob(state));
+                    log(`解析 state 數據: ${JSON.stringify(stateData)}`);
+                } catch (e) {
+                    log(`解析 state 數據出錯: ${e.message}`);
+                }
+            }
+            
+            return {
+                token: token,
+                stateData: stateData
+            };
         }
 
         // 發送數據到 Firebase
-        function sendDataToFirebase(sessionId, token, userData) {
+        function sendDataToFirebase(sessionId, token) {
+            log(`準備發送數據到 Firebase，sessionId: ${sessionId}`);
+            
             const sessionRef = database.ref('sessions/' + sessionId);
             
             return sessionRef.set({
                 token: token,
-                userData: userData,
                 timestamp: Date.now()
+            })
+            .then(() => {
+                log(`數據成功發送到 Firebase`);
+                updateStatus('授權成功! 已將 Google 授權令牌發送到電腦端', 'success');
+            })
+            .catch((error) => {
+                log(`發送數據到 Firebase 失敗: ${error.message}`);
+                updateStatus('發送數據到電腦端失敗: ' + error.message, 'error');
             });
         }
 
         // 初始化頁面
         window.onload = function() {
+            log(`頁面加載完成，開始初始化...`);
             initScanner();
             
+            // 設置掃描按鈕事件處理
             document.getElementById('startScanBtn').addEventListener('click', function() {
                 this.disabled = true;
                 startScanner();
             });
             
-            // 檢查是否從 Google 授權重定向回來
-            const token = parseAccessToken();
-            if (token && sessionData) {
-                // 如果有 token 和 session 數據，說明是從授權頁面返回的
-                const userData = {
-                    name: document.getElementById('userName').value,
-                    note: document.getElementById('userNote').value
-                };
-                
-                sendDataToFirebase(sessionData.sessionId, token, userData)
-                    .then(() => {
-                        updateStatus('授權成功! 已將 Google 授權令牌發送到電腦端', 'success');
-                    })
-                    .catch((error) => {
-                        updateStatus('發送數據到電腦端失敗: ' + error.message, 'error');
-                    });
-            }
+            // 設置 Google 登入按鈕事件處理
+            document.getElementById('googleSignInBtn').addEventListener('click', startGoogleAuth);
             
-            // 從 localStorage 恢復 session 數據
-            const savedSession = localStorage.getItem('sessionData');
-            if (savedSession) {
-                try {
-                    sessionData = JSON.parse(savedSession);
-                } catch (e) {
-                    console.error('恢復 session 數據失敗', e);
+            // 檢查是否從 Google 授權重定向回來
+            const urlParams = parseUrlParams();
+            if (urlParams.token && urlParams.stateData) {
+                log(`從 Google 授權重定向回來，提取的 token 和 state 數據有效`);
+                
+                // 使用 state 中的 sessionId 數據
+                sendDataToFirebase(urlParams.stateData.sessionId, urlParams.token);
+            } else {
+                // 從 localStorage 恢復 session 數據
+                const savedSession = localStorage.getItem('sessionData');
+                if (savedSession) {
+                    try {
+                        sessionData = JSON.parse(savedSession);
+                        log(`從 localStorage 恢復 sessionData: ${JSON.stringify(sessionData)}`);
+                    } catch (e) {
+                        log(`恢復 sessionData 失敗: ${e.message}`);
+                    }
                 }
             }
+            
+            // 顯示除錯資訊按鈕
+            document.getElementById('showDebugBtn').addEventListener('click', function() {
+                const debugElement = document.getElementById('debug');
+                if (debugElement.style.display === 'none') {
+                    debugElement.style.display = 'block';
+                    this.textContent = '隱藏除錯資訊';
+                } else {
+                    debugElement.style.display = 'none';
+                    this.textContent = '顯示除錯資訊';
+                }
+            });
         };
-        
-        // 保存 session 數據到 localStorage
-        window.addEventListener('beforeunload', function() {
-            if (sessionData) {
-                localStorage.setItem('sessionData', JSON.stringify(sessionData));
-            }
-        });
     </script>
 </body>
 </html>
