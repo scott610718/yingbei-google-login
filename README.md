@@ -1,0 +1,2 @@
+# yingbei-google-login
+loginGoogle
