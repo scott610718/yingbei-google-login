@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google 登入 - 電腦端</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-functions-compat.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+        }
+        h1 {
+            color: #4285F4;
+            margin-bottom: 20px;
+        }
+        #qrcode {
+            margin: 30px auto;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #555;
+        }
+        .success {
+            color: #0f9d58;
+            font-weight: bold;
+        }
+        .waiting {
+            color: #4285F4;
+        }
+        .error {
+            color: #ea4335;
+        }
+        .logo {
+            margin-bottom: 20px;
+        }
+        .logo img {
+            height: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" alt="Google Logo">
+        </div>
+        <h1>掃描 QR Code 登入</h1>
+        <p>使用您的手機掃描下方 QR Code，完成 Google 帳號驗證</p>
+        <div id="qrcode"></div>
+        <div id="status" class="waiting">等待手機掃描...</div>
+    </div>
+
+    <script>
+        // Firebase 配置
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // 初始化 Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+        const functions = firebase.functions();
+        
+        // 生成唯一的會話 ID
+        const sessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        
+        // 生成 QR Code
+        const qrCodeUrl = `${window.location.origin}/mobile.html?session=${sessionId}`;
+        new QRCode(document.getElementById("qrcode"), {
+            text: qrCodeUrl,
+            width: 200,
+            height: 200,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
+        });
+        
+        // 監聽 Firebase 數據庫中的會話狀態
+        const sessionRef = database.ref(`sessions/${sessionId}`);
+        sessionRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+            
+            // 當手機端已完成 Google 授權
+            if (data.status === 'authorized' && data.authCode) {
+                document.getElementById('status').innerText = '收到授權碼，正在登入...';
+                
+                // 使用 Firebase Functions 交換授權碼獲取令牌
+                // 這部分通常需要後端支持，此範例假設已設置相應的 Firebase Function
+                const exchangeAuthCode = functions.httpsCallable('exchangeAuthCode');
+                exchangeAuthCode({ authCode: data.authCode })
+                    .then((result) => {
+                        // 結果包含 ID token，可用於登入 Firebase Auth
+                        if (result.data && result.data.idToken) {
+                            return auth.signInWithCustomToken(result.data.customToken);
+                        } else {
+                            throw new Error('未收到有效的令牌');
+                        }
+                    })
+                    .then((userCredential) => {
+                        // 登入成功
+                        const user = userCredential.user;
+                        document.getElementById('status').className = 'success';
+                        document.getElementById('status').innerText = `登入成功！歡迎 ${user.displayName || user.email}`;
+                        
+                        // 更新 Firebase 中的會話狀態
+                        sessionRef.update({ status: 'completed', completedAt: Date.now() });
+                        
+                        // 可以在這裡進行頁面重定向或其他後續操作
+                        setTimeout(() => {
+                            window.location.href = "/dashboard.html";  // 登入後重定向到儀表板頁面
+                        }, 2000);
+                    })
+                    .catch((error) => {
+                        document.getElementById('status').className = 'error';
+                        document.getElementById('status').innerText = `登入失敗: ${error.message}`;
+                        sessionRef.update({ status: 'error', error: error.message });
+                    });
+            }
+            
+            // 顯示進度訊息
+            if (data.status === 'scanning') {
+                document.getElementById('status').innerText = '手機正在掃描...';
+            } else if (data.status === 'authenticating') {
+                document.getElementById('status').innerText = '手機正在進行 Google 授權...';
+            } else if (data.status === 'error') {
+                document.getElementById('status').className = 'error';
+                document.getElementById('status').innerText = `錯誤: ${data.error}`;
+            }
+        });
+        
+        // 設置會話過期時間 (5 分鐘)
+        sessionRef.set({
+            createdAt: Date.now(),
+            status: 'created',
+            expiresAt: Date.now() + (5 * 60 * 1000) // 5 分鐘後過期
+        });
+        
+        // 會話過期後清理
+        setTimeout(() => {
+            const statusElement = document.getElementById('status');
+            if (statusElement.className !== 'success') {
+                statusElement.innerText = '會話已過期，請刷新頁面重新獲取 QR Code';
+                sessionRef.remove();
+            }
+        }, 5 * 60 * 1000);
+    </script>
+</body>
+</html>
