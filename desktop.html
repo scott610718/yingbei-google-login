@@ -410,8 +410,8 @@
             
             // 設置服務標題
             let serviceTitle = '';
-            let apiCall = null;
-            //   let serviceUrl = '';
+            //   let apiCall = null;
+            let serviceUrl = '';
             
             switch(service) {
                  case 'mail':
@@ -440,11 +440,51 @@
             // 因為我們無法將 token 直接應用於 Google 服務的網頁界面，提供新標籤頁打開選項
             serviceContainer.innerHTML = `
                 <h2>${serviceTitle}</h2>
-                <p>您已成功使用 Google 帳號登入。</p>
-                <p>由於瀏覽器安全限制，無法在應用內直接嵌入 Google 服務。</p>
-                <p>請點擊下方按鈕在新標籤頁打開 ${serviceTitle}。您會發現自己已經登入。</p>
-                <button onclick="window.open('${serviceUrl}', '_blank')" class="google-service-btn">開啟 ${serviceTitle}</button>
+                <p>正在準備 ${serviceTitle} 服務...</p>
+                <div id="iframe-container" style="width:100%; height:500px; border:1px solid #ddd;"></div>
             `;
+    
+            // 使用 Google 身份服務檢測登入狀態
+            if (googleToken) {
+                // 使用令牌創建一個表單，自動提交到服務頁面
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = serviceUrl;
+                form.target = 'service-frame';
+        
+                const tokenInput = document.createElement('input');
+                tokenInput.type = 'hidden';
+                tokenInput.name = 'access_token'; 
+                tokenInput.value = googleToken;
+        
+                form.appendChild(tokenInput);
+                document.body.appendChild(form);
+        
+                // 創建 iframe
+                const iframe = document.createElement('iframe');
+                iframe.name = 'service-frame';
+                iframe.id = 'service-frame';
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+        
+                document.getElementById('iframe-container').appendChild(iframe);
+        
+                // 提交表單
+                form.submit();
+        
+                // 添加後備選項
+                serviceContainer.innerHTML += `
+                    <p style="margin-top:10px;">如果服務沒有自動加載，請點擊下方按鈕在新窗口打開。</p>
+                    <button onclick="window.open('${serviceUrl}', '_blank')" class="google-service-btn">在新窗口打開 ${serviceTitle}</button>
+                `;
+            } else {
+                serviceContainer.innerHTML = `
+                    <h2>${serviceTitle}</h2>
+                    <p>無法自動登入 Google 服務，令牌無效或缺失。</p>
+                    <button onclick="window.open('${serviceUrl}', '_blank')">在新窗口打開 ${serviceTitle}</button>
+                `;
+            }
         }
         
         // 顯示服務列表
