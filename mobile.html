@@ -242,10 +242,15 @@
             }
     
             log(`發送確認信號到 Firebase，sessionId: ${sessionData.sessionId}`);
-    
+            // 檢查 sessionId 格式
+            if (!sessionData.sessionId || typeof sessionData.sessionId !== 'string') {
+                log(`無效的 sessionId: ${JSON.stringify(sessionData)}`);
+                updateStatus('錯誤: 無效的 sessionId', 'error');
+                return;
+            }    
             // 發送確認信號到 Firebase
-            const sessionRef = database.ref('sessions/' + sessionData.sessionId);
-    
+            const sessionRef = database.ref(`sessions/${sessionData.sessionId}`);
+     // 存儲更簡單的數據結構
             sessionRef.set({
                 action: 'start_auth',
                 timestamp: Date.now()
@@ -256,7 +261,20 @@
             })
             .catch((error) => {
                 log(`發送確認信號失敗: ${error.message}`);
-                updateStatus('發送確認失敗: ' + error.message, 'error');
+        
+                // 嘗試使用 update 代替 set
+                sessionRef.update({
+                    action: 'start_auth',
+                    timestamp: Date.now()
+                })
+                .then(() => {
+                    log(`使用 update 方法成功發送確認信號`);
+                    updateStatus('登入確認已發送！請返回電腦完成授權流程。', 'success');
+                })
+                .catch((updateError) => {
+                    log(`使用 update 方法仍然失敗: ${updateError.message}`);
+                    updateStatus('發送確認失敗: ' + error.message, 'error');
+                });
             });
         }
         
@@ -268,29 +286,30 @@
                updateStatus('發送失敗: 缺少必要參數', 'error');
                return Promise.reject(new Error('缺少必要參數'));
             }           
+                // 檢查 Firebase 連接狀態
+            const sessionRef = database.ref(`sessions/${sessionId}`);
+            const data = {
+                token: token,
+                timestamp: Date.now()
+            };
+            connectedRef.once('value', (snap) => {
+                if (snap.val() === true) {
+                    log('已連接到 Firebase 資料庫');
+                } else {
+                    log('未連接到 Firebase 資料庫');
+                }
+            });
             const sessionRef = database.ref('sessions/' + sessionId);
             const data = {
                 token: token,
                 timestamp: Date.now()
             };
-            log(`要發送的數據: ${JSON.stringify({token: token.substring(0, 10) + '...', timestamp: data.timestamp})}`);
-            
-            return sessionRef.set(data)
+            // 使用 update 方法而不是 set
+            return sessionRef.update(data)
             .then(() => {
                 log(`數據成功發送到 Firebase`);
-        
-                // 確認數據是否真的寫入
-                return sessionRef.once('value');
-            })
-            .then((snapshot) => {
-                const checkData = snapshot.val();
-                if (checkData && checkData.token) {
-                    log(`確認: 數據已成功寫入 Firebase`);
-                    updateStatus('授權成功! 已將 Google 授權令牌發送到電腦端', 'success');
-                    return true;
-                } else {
-                    throw new Error('數據似乎未成功寫入');
-                }
+                updateStatus('授權成功! 已將 Google 授權令牌發送到電腦端', 'success');
+                return true;
             })
             .catch((error) => {
                 log(`發送數據到 Firebase 失敗: ${error.message}`);
@@ -302,6 +321,26 @@
         // 初始化頁面
         window.onload = function() {
             log(`頁面加載完成，開始初始化...`);
+                // 檢查 Firebase 初始化
+            try {
+                // 測試 Firebase 連接
+                const testRef = database.ref('test');
+                testRef.set({
+                    timestamp: Date.now(),
+                    message: 'Mobile connection test'
+                })
+                .then(() => {
+                    log('Firebase 連接測試成功');
+                    initScanner();
+                })
+                .catch(error => {
+                    log(`Firebase 連接測試失敗: ${error.message}`);
+                    updateStatus('Firebase 連接失敗，請檢查網絡或應用配置', 'error');
+                });
+            } catch (error) {
+                log(`Firebase 初始化失敗: ${error.message}`);
+                updateStatus('應用初始化失敗，請重新載入頁面', 'error');
+            }
             initScanner();
             
             // 設置掃描按鈕事件處理
