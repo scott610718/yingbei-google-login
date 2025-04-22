@@ -350,9 +350,17 @@
             gapi.load('client:auth2', () => {
                 gapi.client.init({
                    clientId: googleClientId,
-                   scope: googleScopes
+                   scope: googleScopes,
+                   immediate: true
                 }).then(() => {
-                // 設置已獲得的 token
+                    // 再加載需要的 API
+                    return gapi.client.load('gmail', 'v1');
+                }).then(() => {
+                    return gapi.client.load('drive', 'v3');
+                }).then(() => {
+                    return gapi.client.load('calendar', 'v3');
+                }).then(() => {
+                    // 設置已獲得的 token
                    gapi.client.setToken({
                       access_token: googleToken
                 });
@@ -362,6 +370,8 @@
                 }).catch(error => {
                    log(`初始化 Google API 失敗: ${error.message}`);
                    updateStatus('初始化 Google API 失敗', 'error');
+                   // 儘管 API 初始化失敗，仍然顯示 Google 服務選項
+                   showGoogleServices();
                 });
            });
         }
