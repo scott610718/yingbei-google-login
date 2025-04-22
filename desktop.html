@@ -326,8 +326,7 @@
                 
                 // 顯示用戶資訊
                 displayUserProfile(data);
-                    // 初始化 Google API (新增)
-                initializeGoogleApis();                
+
                 // 顯示 Google 服務選項
                 showGoogleServices();
                 
@@ -417,63 +416,37 @@
             //   let serviceUrl = '';
             
             switch(service) {
-                case 'mail':
-                    serviceTitle = 'Gmail';
-                    if (gapi.client.gmail) {
-                        apiCall = gapi.client.gmail.users.messages.list({userId: 'me', maxResults: 10});
-                    }
-                    break;
-                case 'drive':
-                    serviceTitle = 'Google Drive';
-                    if (gapi.client.drive) {
-                        apiCall = gapi.client.drive.files.list({pageSize: 10});
-                    }
-                    break;
-                case 'calendar':
-                    serviceTitle = 'Google Calendar';
-                    if (gapi.client.calendar) {
-                       apiCall = gapi.client.calendar.events.list({calendarId: 'primary', timeMin: (new Date()).toISOString()});
-                    }
-                    break;
-                case 'docs':
-                    serviceTitle = 'Google Docs';
-                    // Docs API 需要單獨處理
-                    break;
+                 case 'mail':
+                     serviceTitle = 'Gmail';  
+                     serviceUrl = 'https://mail.google.com/mail/u/0/';
+                     break;
+                 case 'drive':
+                     serviceTitle = 'Google Drive';
+                     serviceUrl = 'https://drive.google.com/drive/u/0/';
+                     break;
+                 case 'calendar':
+                     serviceTitle = 'Google Calendar';
+                     serviceUrl = 'https://calendar.google.com/calendar/u/0/';
+                     break;
+                 case 'docs':
+                     serviceTitle = 'Google Docs';
+                     serviceUrl = 'https://docs.google.com/document/u/0/';
+                     break;
+                 default:
+                     serviceTitle = '未知服務';
+                     serviceUrl = '';
             }
             
             serviceHeader.textContent = serviceTitle;
             serviceContainer.style.display = 'block';
-            // 嘗試使用 API
-            if (apiCall) {
-                serviceContainer.innerHTML = `<h2>${serviceTitle}</h2><p>正在載入數據...</p>`;
-        
-                apiCall.then(response => {
-                    // 顯示 API 結果
-                    let contentHtml = `<h2>${serviceTitle}</h2>`;
-                    contentHtml += `<p>成功讀取數據!</p>`;
-            
-                    // 根據不同服務處理數據
-                    // ... 這裡可以添加特定服務的數據處理邏輯 ...
-            
-                    serviceContainer.innerHTML = contentHtml;
-                }).catch(error => {
-                    // 處理 API 錯誤，提供直接連結選項
-                    serviceContainer.innerHTML = `
-                        <h2>${serviceTitle}</h2>
-                        <p>無法使用 API 訪問 ${serviceTitle}: ${error.message}</p>
-                        <p>您可以選擇直接在新標籤頁打開 ${serviceTitle}。</p>
-                        <button onclick="window.open('https://${service}.google.com', '_blank')">開啟 ${serviceTitle}</button>
-                    `;
-                });
-            } else {
-                // 備用選項：直接開啟 Google 服務
-                serviceContainer.innerHTML = `
-                    <h2>${serviceTitle}</h2>
-                    <p>目前無法使用 API 訪問 ${serviceTitle}。</p>
-                    <p>請點擊下方按鈕在新標籤頁打開。</p>
-                    <button onclick="window.open('https://${service}.google.com', '_blank')">開啟 ${serviceTitle}</button>
-                `;
-            }
+            // 因為我們無法將 token 直接應用於 Google 服務的網頁界面，提供新標籤頁打開選項
+            serviceContainer.innerHTML = `
+                <h2>${serviceTitle}</h2>
+                <p>您已成功使用 Google 帳號登入。</p>
+                <p>由於瀏覽器安全限制，無法在應用內直接嵌入 Google 服務。</p>
+                <p>請點擊下方按鈕在新標籤頁打開 ${serviceTitle}。您會發現自己已經登入。</p>
+                <button onclick="window.open('${serviceUrl}', '_blank')" class="google-service-btn">開啟 ${serviceTitle}</button>
+            `;
         }
         
         // 顯示服務列表
