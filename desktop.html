@@ -367,8 +367,15 @@
                    log('成功設置 Google API 客戶端 token');
                    updateStatus('Google API 已準備就緒', 'success');
                 }).catch(error => {
-                   log(`初始化 Google API 失敗: ${error.message}`);
+                   const errorDetails = error.details || error.message || 'Unknown error';
+                   log(`初始化 Google API 失敗: ${errorDetails}`);
+    
+                   if (error.error) {
+                       log(`錯誤代碼: ${error.error}`);
+                   }
+    
                    updateStatus('初始化 Google API 失敗', 'error');
+    
                    // 儘管 API 初始化失敗，仍然顯示 Google 服務選項
                    showGoogleServices();
                 });
