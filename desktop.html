@@ -500,6 +500,33 @@
             generateQRCode(qrData);
             updateStatus('請使用手機掃描 QR Code 以進行 Google 授權', 'waiting');
             listenForAuthToken(sessionId);
+                // 初始化 Google OAuth
+            initializeGoogleOAuth();
+        }
+
+        function initializeGoogleOAuth() {
+            log('初始化 Google OAuth...');
+    
+            // 初始化 Google OAuth 客戶端
+            const client = google.accounts.oauth2.initTokenClient({
+                client_id: googleClientId,
+                scope: googleScopes,
+                callback: (tokenResponse) => {
+                    if (tokenResponse && tokenResponse.access_token) {
+                        log('成功獲取 Google 訪問令牌');
+                        googleToken = tokenResponse.access_token;
+                        updateStatus('Google 授權成功!', 'success');
+                        fetchGoogleUserInfo(googleToken);
+                    }
+                },
+                error_callback: (error) => {
+                    log(`Google OAuth 錯誤: ${JSON.stringify(error)}`);
+                    updateStatus('Google 授權失敗', 'error');
+                }
+            });
+    
+            // 將客戶端保存為全局變量，以便稍後使用
+            window.googleOAuthClient = client;
         }
         
         // 頁面載入
