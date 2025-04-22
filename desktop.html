@@ -514,6 +514,20 @@
         
         // 頁面載入
         window.onload = function() {
+            // 測試 Firebase 連接
+            log('測試 Firebase 連接...');
+            const testRef = database.ref('test');
+            testRef.set({
+                timestamp: Date.now(),
+                message: 'Test connection'
+            })
+            .then(() => {
+                log('Firebase 連接測試成功');
+            })
+            .catch(error => {
+                log(`Firebase 連接測試失敗: ${error.message}`);
+            });
+    
             initializePage();
             
             // 顯示除錯資訊按鈕
