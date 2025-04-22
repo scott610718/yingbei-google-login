@@ -166,6 +166,7 @@
                     // 隱藏掃描器，顯示授權按鈕
                     document.getElementById('scannerContainer').style.display = 'none';
                     document.getElementById('authContainer').style.display = 'block';
+                    document.getElementById('googleSignInBtn').textContent = '確認登入';
                 } else {
                     throw new Error('QR Code 格式無效');
                 }
@@ -233,6 +234,32 @@
             };
         }
 
+
+        function confirmLogin() {
+            if (!sessionData) {
+                updateStatus('錯誤: 沒有有效的 sessionId', 'error');
+                return;
+            }
+    
+            log(`發送確認信號到 Firebase，sessionId: ${sessionData.sessionId}`);
+    
+            // 發送確認信號到 Firebase
+            const sessionRef = database.ref('sessions/' + sessionData.sessionId);
+    
+            sessionRef.set({
+                action: 'start_auth',
+                timestamp: Date.now()
+            })
+            .then(() => {
+                log(`確認信號已發送`);
+                updateStatus('登入確認已發送！請返回電腦完成授權流程。', 'success');
+            })
+            .catch((error) => {
+                log(`發送確認信號失敗: ${error.message}`);
+                updateStatus('發送確認失敗: ' + error.message, 'error');
+            });
+        }
+        
         // 發送數據到 Firebase
         function sendDataToFirebase(sessionId, token) {
             log(`準備發送數據到 Firebase，sessionId: ${sessionId}`);
@@ -284,7 +311,7 @@
             });
             
             // 設置 Google 登入按鈕事件處理
-            document.getElementById('googleSignInBtn').addEventListener('click', startGoogleAuth);
+            document.getElementById('googleSignInBtn').addEventListener('click', confirmLogin);
             
             // 檢查是否從 Google 授權重定向回來
             const urlParams = parseUrlParams();
