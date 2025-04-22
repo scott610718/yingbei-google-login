@@ -258,8 +258,19 @@
 
         // 監聽 Firebase 數據變化
         function listenForAuthToken(sessionId) {
-            const sessionRef = database.ref('sessions/' + sessionId);
+            const sessionRef = database.ref(`sessions/${sessionId}`);
             log(`開始監聽 Firebase 路徑: sessions/${sessionId}`);
+                // 確保路徑是可寫的
+            sessionRef.set({
+                initialized: true,
+                timestamp: Date.now()
+            })
+            .then(() => {
+                log('成功初始化 Firebase 路徑，確認可寫');
+            })
+            .catch((error) => {
+                log(`Firebase 路徑初始化失敗: ${error.message}`);
+            });
             // 增加 Firebase 連接狀態監聽
             const connectedRef = database.ref('.info/connected');
             connectedRef.on('value', (snap) => {
@@ -269,29 +280,28 @@
                     log('未連接到 Firebase 資料庫');
                 }
             });            
+            // 然後開始監聽
             sessionRef.on('value', (snapshot) => {
                 const data = snapshot.val();
+                log(`收到 Firebase 數據更新: ${JSON.stringify(data)}`);
                 if (data && data.action === 'start_auth') {
                     log('收到手機端確認，開始 Google 授權流程');
                     updateStatus('手機確認收到，正在啟動 Google 授權...', 'waiting');
             
-                    // 清除監聽
-                    sessionRef.off();
+                    // 清除該特定 action 數據以避免重複處理
+                    sessionRef.child('action').remove();
             
                     // 啟動 Google 授權流程
                     if (window.googleOAuthClient) {
                         window.googleOAuthClient.requestAccessToken();
-                    } else {
-                        log('錯誤: googleOAuthClient 未初始化');
-                        updateStatus('Google 授權失敗: OAuth 客戶端未初始化', 'error');
-                    }
-            
-                    // 刪除 Firebase 數據
-                    sessionRef.remove();
-                }
-            }, (error) => {
-                log(`Firebase 監聽失敗: ${error.message}`);
-            });
+                     } else {
+                         log('錯誤: googleOAuthClient 未初始化');
+                         updateStatus('Google 授權失敗: OAuth 客戶端未初始化', 'error');
+                     }
+                 }
+             }, (error) => {
+                 log(`Firebase 監聽失敗: ${error.message}`);
+             });
         }
         
         // 獲取 Google 用戶資訊
@@ -524,15 +534,22 @@
                 action: 'googleAuth'
             });
             
-            // 儲存 sessionId 到本地存儲
-            localStorage.setItem('currentSessionId', sessionId);
-            
-            log(`初始化頁面，產生 sessionId: ${sessionId}`);
-            generateQRCode(qrData);
-            updateStatus('請使用手機掃描 QR Code 以進行 Google 授權', 'waiting');
-            listenForAuthToken(sessionId);
-                // 初始化 Google OAuth
-            initializeGoogleOAuth();
+             // 預先在 Firebase 初始化此路徑
+             const sessionRef = database.ref(`sessions/${sessionId}`);
+             sessionRef.set({
+                 created: true,
+                 timestamp: Date.now()
+             })
+             .then(() => {
+                 log(`Firebase 路徑初始化成功: sessions/${sessionId}`);
+                generateQRCode(qrData);
+                 updateStatus('請使用手機掃描 QR Code 以進行 Google 授權', 'waiting');
+                 listenForAuthToken(sessionId);
+             })
+             .catch(error => {
+                 log(`Firebase 路徑初始化失敗: ${error.message}`);
+                 updateStatus('初始化失敗，請重新載入頁面', 'error');
+             });
         }
 
         function initializeGoogleOAuth() {
