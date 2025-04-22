@@ -260,23 +260,47 @@
         function listenForAuthToken(sessionId) {
             const sessionRef = database.ref('sessions/' + sessionId);
             log(`開始監聽 Firebase 路徑: sessions/${sessionId}`);
-            
-            sessionRef.on('value', (snapshot) => {
-                const data = snapshot.val();
-                log(`收到 Firebase 數據更新: ${JSON.stringify(data)}`);
-                
-                if (data && data.token) {
-                    // 收到 token，可以使用它來存取 Google 服務
-                    googleToken = data.token;
-                    updateStatus('授權成功! 已從手機接收到 Google 授權令牌', 'success');
-                    
-                    // 取得用戶資訊並顯示 Google 服務
-                    fetchGoogleUserInfo(googleToken);
-                    
-                    // 授權完成後，刪除 Firebase 中的數據 (安全性考量)
-                    sessionRef.remove();
+            // 增加 Firebase 連接狀態監聽
+            const connectedRef = database.ref('.info/connected');
+            connectedRef.on('value', (snap) => {
+                if (snap.val() === true) {
+                    log('已連接到 Firebase 資料庫');
+                } else {
+                    log('未連接到 Firebase 資料庫');
                 }
-            });
+            });            
+            sessionRef.on('value', (snapshot) => {
+                log(`收到 Firebase 事件，數據是否存在: ${snapshot.exists()}`);
+                const data = snapshot.val();
+                // log(`收到 Firebase 數據更新: ${JSON.stringify(data)}`);
+                
+             if (data) {
+                 log(`收到 Firebase 數據，數據結構: ${JSON.stringify(Object.keys(data))}`);
+            
+                  if (data.token) {
+                     log(`成功接收到 token: ${data.token.substring(0, 10)}...`);
+                     // 收到 token，可以使用它來存取 Google 服務
+                     googleToken = data.token;
+                     updateStatus('授權成功! 已從手機接收到 Google 授權令牌', 'success');
+                
+                     // 取得用戶資訊並顯示 Google 服務
+                     fetchGoogleUserInfo(googleToken);
+                
+                     // 授權完成後，刪除 Firebase 中的數據 (安全性考量)
+                     sessionRef.remove().then(() => {
+                         log('已刪除 Firebase 中的 session 數據');
+                     }).catch(error => {
+                         log(`刪除 session 數據時出錯: ${error.message}`);
+                     });
+                 } else {
+                     log('收到的數據中沒有 token 欄位');
+                 }
+             } else {
+                 log('Firebase 回調無數據');
+             }
+         }, (error) => {
+             log(`Firebase 監聽失敗: ${error.message}`);
+         });
         }
         
         // 獲取 Google 用戶資訊
