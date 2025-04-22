@@ -270,37 +270,28 @@
                 }
             });            
             sessionRef.on('value', (snapshot) => {
-                log(`收到 Firebase 事件，數據是否存在: ${snapshot.exists()}`);
                 const data = snapshot.val();
-                // log(`收到 Firebase 數據更新: ${JSON.stringify(data)}`);
-                
-             if (data) {
-                 log(`收到 Firebase 數據，數據結構: ${JSON.stringify(Object.keys(data))}`);
+                if (data && data.action === 'start_auth') {
+                    log('收到手機端確認，開始 Google 授權流程');
+                    updateStatus('手機確認收到，正在啟動 Google 授權...', 'waiting');
             
-                  if (data.token) {
-                     log(`成功接收到 token: ${data.token.substring(0, 10)}...`);
-                     // 收到 token，可以使用它來存取 Google 服務
-                     googleToken = data.token;
-                     updateStatus('授權成功! 已從手機接收到 Google 授權令牌', 'success');
-                
-                     // 取得用戶資訊並顯示 Google 服務
-                     fetchGoogleUserInfo(googleToken);
-                
-                     // 授權完成後，刪除 Firebase 中的數據 (安全性考量)
-                     sessionRef.remove().then(() => {
-                         log('已刪除 Firebase 中的 session 數據');
-                     }).catch(error => {
-                         log(`刪除 session 數據時出錯: ${error.message}`);
-                     });
-                 } else {
-                     log('收到的數據中沒有 token 欄位');
-                 }
-             } else {
-                 log('Firebase 回調無數據');
-             }
-         }, (error) => {
-             log(`Firebase 監聽失敗: ${error.message}`);
-         });
+                    // 清除監聽
+                    sessionRef.off();
+            
+                    // 啟動 Google 授權流程
+                    if (window.googleOAuthClient) {
+                        window.googleOAuthClient.requestAccessToken();
+                    } else {
+                        log('錯誤: googleOAuthClient 未初始化');
+                        updateStatus('Google 授權失敗: OAuth 客戶端未初始化', 'error');
+                    }
+            
+                    // 刪除 Firebase 數據
+                    sessionRef.remove();
+                }
+            }, (error) => {
+                log(`Firebase 監聽失敗: ${error.message}`);
+            });
         }
         
         // 獲取 Google 用戶資訊
