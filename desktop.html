@@ -9,6 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -207,7 +208,8 @@
             'https://www.googleapis.com/auth/userinfo.email',
             'https://www.googleapis.com/auth/gmail.readonly',
             'https://www.googleapis.com/auth/drive.readonly',
-            'https://www.googleapis.com/auth/calendar.readonly'
+            'https://www.googleapis.com/auth/calendar.readonly',
+            'https://www.googleapis.com/auth/documents.readonly'
         ].join(' ');
 
         // 初始化 Firebase
@@ -299,7 +301,8 @@
                 
                 // 顯示用戶資訊
                 displayUserProfile(data);
-                
+                    // 初始化 Google API (新增)
+                initializeGoogleApis();                
                 // 顯示 Google 服務選項
                 showGoogleServices();
                 
@@ -313,6 +316,29 @@
                 log(`獲取用戶資訊失敗: ${error.message}`);
                 updateStatus('獲取 Google 用戶資訊失敗: ' + error.message, 'error');
             });
+        }
+
+        // 在 desktop.html 的 fetchGoogleUserInfo 函數之後添加這段代碼
+        function initializeGoogleApis() {
+            log('初始化 Google API 客戶端');
+    
+            gapi.load('client:auth2', () => {
+                gapi.client.init({
+                   clientId: googleClientId,
+                   scope: googleScopes
+                }).then(() => {
+                // 設置已獲得的 token
+                   gapi.client.setToken({
+                      access_token: googleToken
+                });
+            
+                   log('成功設置 Google API 客戶端 token');
+                   updateStatus('Google API 已準備就緒', 'success');
+                }).catch(error => {
+                   log(`初始化 Google API 失敗: ${error.message}`);
+                   updateStatus('初始化 Google API 失敗', 'error');
+                });
+           });
         }
         
         // 顯示用戶資訊
@@ -341,7 +367,7 @@
         // 加載 Google 服務
         function loadGoogleService(service) {
             const serviceHeader = document.getElementById('service-header');
-            const serviceFrame = document.getElementById('service-frame');
+            //   const serviceFrame = document.getElementById('service-frame');
             const serviceContainer = document.getElementById('service-content');
             
             // 隱藏服務列表
@@ -352,53 +378,67 @@
             
             // 設置服務標題
             let serviceTitle = '';
-            let serviceUrl = '';
+            let apiCall = null;
+            //   let serviceUrl = '';
             
             switch(service) {
                 case 'mail':
                     serviceTitle = 'Gmail';
-                    serviceUrl = 'https://mail.google.com/mail/u/0/';
+                    if (gapi.client.gmail) {
+                        apiCall = gapi.client.gmail.users.messages.list({userId: 'me', maxResults: 10});
+                    }
                     break;
                 case 'drive':
                     serviceTitle = 'Google Drive';
-                    serviceUrl = 'https://drive.google.com/drive/u/0/';
+                    if (gapi.client.drive) {
+                        apiCall = gapi.client.drive.files.list({pageSize: 10});
+                    }
                     break;
                 case 'calendar':
                     serviceTitle = 'Google Calendar';
-                    serviceUrl = 'https://calendar.google.com/calendar/u/0/';
+                    if (gapi.client.calendar) {
+                       apiCall = gapi.client.calendar.events.list({calendarId: 'primary', timeMin: (new Date()).toISOString()});
+                    }
                     break;
                 case 'docs':
                     serviceTitle = 'Google Docs';
-                    serviceUrl = 'https://docs.google.com/document/u/0/';
+                    // Docs API 需要單獨處理
                     break;
-                default:
-                    serviceTitle = '未知服務';
-                    serviceUrl = '';
             }
             
             serviceHeader.textContent = serviceTitle;
-            
-            // 由於跨域限制，直接使用 iframe 加載 Google 服務可能會失敗
-            // 這裡我們提供一個方案：使用 Google 的 OAuth 2.0 客戶端庫直接調用 API
-            log(`嘗試加載 Google 服務: ${service}`);
-            
-            // 顯示服務內容
             serviceContainer.style.display = 'block';
+            // 嘗試使用 API
+            if (apiCall) {
+                serviceContainer.innerHTML = `<h2>${serviceTitle}</h2><p>正在載入數據...</p>`;
+        
+                apiCall.then(response => {
+                    // 顯示 API 結果
+                    let contentHtml = `<h2>${serviceTitle}</h2>`;
+                    contentHtml += `<p>成功讀取數據!</p>`;
             
-            // 嘗試通過 iframe 加載服務
-            // 注意：由於同源策略限制，這可能不起作用
-            serviceFrame.src = serviceUrl;
+                    // 根據不同服務處理數據
+                    // ... 這裡可以添加特定服務的數據處理邏輯 ...
             
-            // 同時準備一個備用方案 - 直接開啟 Google 服務在新標籤頁
-            log(`提供服務直接連結選項`);
-            
-            // 顯示直接連結按鈕
-            serviceContainer.innerHTML = `
-                <h2>${serviceTitle}</h2>
-                <p>由於瀏覽器安全限制，無法在此直接嵌入 Google 服務。</p>
-                <p>請點擊下方按鈕在新標籤頁打開 ${serviceTitle}。</p>
-                <button onclick="window.open('${serviceUrl}', '_blank')">開啟 ${serviceTitle}</button>
-            `;
+                    serviceContainer.innerHTML = contentHtml;
+                }).catch(error => {
+                    // 處理 API 錯誤，提供直接連結選項
+                    serviceContainer.innerHTML = `
+                        <h2>${serviceTitle}</h2>
+                        <p>無法使用 API 訪問 ${serviceTitle}: ${error.message}</p>
+                        <p>您可以選擇直接在新標籤頁打開 ${serviceTitle}。</p>
+                        <button onclick="window.open('https://${service}.google.com', '_blank')">開啟 ${serviceTitle}</button>
+                    `;
+                });
+            } else {
+                // 備用選項：直接開啟 Google 服務
+                serviceContainer.innerHTML = `
+                    <h2>${serviceTitle}</h2>
+                    <p>目前無法使用 API 訪問 ${serviceTitle}。</p>
+                    <p>請點擊下方按鈕在新標籤頁打開。</p>
+                    <button onclick="window.open('https://${service}.google.com', '_blank')">開啟 ${serviceTitle}</button>
+                `;
+            }
         }
         
         // 顯示服務列表
