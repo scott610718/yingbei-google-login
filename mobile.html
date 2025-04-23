@@ -2,92 +2,364 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>手機端 - QR Code 掃描器</title>
-    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.2.1/html5-qrcode.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Google 授權 - 手機端</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
+            background-color: #f8f9fa;
             margin: 0;
-            padding: 20px;
-            max-width: 500px;
-            margin: 0 auto;
-        }
-        .container {
+            padding: 0;
+            color: #333;
             display: flex;
             flex-direction: column;
-            align-items: center;
+            min-height: 100vh;
         }
-        #reader {
-            width: 100%;
-            max-width: 400px;
+        .container {
+            flex: 1;
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
         }
-        button {
-            padding: 10px 20px;
-            background-color: #4285f4;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 10px;
-            font-size: 16px;
+        header {
+            text-align: center;
+            padding: 20px 0;
+        }
+        h1 {
+            color: #4285F4;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        .card {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
         }
         .status {
-            margin: 20px 0;
+            text-align: center;
+            margin: 15px 0;
             padding: 10px;
             border-radius: 4px;
-            width: 100%;
+            font-weight: bold;
+        }
+        .info {
+            background-color: #E8F0FE;
+            color: #1A73E8;
         }
         .waiting {
-            background-color: #f0f0f0;
+            background-color: #FFF3CD;
+            color: #856404;
         }
         .success {
-            background-color: #d4edda;
+            background-color: #D4EDDA;
             color: #155724;
         }
         .error {
-            background-color: #f8d7da;
-            color: #721c24;
+            background-color: #F8D7DA;
+            color: #721C24;
         }
-        #debug {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border: 1px solid #ddd;
-            text-align: left;
-            font-family: monospace;
+        .step {
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+        }
+        .step-number {
+            width: 30px;
+            height: 30px;
+            background-color: #4285F4;
+            border-radius: 50%;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 15px;
+            font-weight: bold;
+        }
+        .step-content {
+            flex: 1;
+        }
+        .buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        button {
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #3367D6;
+        }
+        button.secondary {
+            background-color: #f1f3f4;
+            color: #202124;
+        }
+        button.secondary:hover {
+            background-color: #e8eaed;
+        }
+        #scanner-container {
             width: 100%;
-            max-height: 150px;
-            overflow-y: auto;
+            max-width: 300px;
+            height: 300px;
+            margin: 0 auto;
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        #scanner-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .scanner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            border: 40px solid rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+        .scanner-corner {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-color: #4285F4;
+        }
+        .scanner-corner-top-left {
+            top: 40px;
+            left: 40px;
+            border-top: 3px solid;
+            border-left: 3px solid;
+        }
+        .scanner-corner-top-right {
+            top: 40px;
+            right: 40px;
+            border-top: 3px solid;
+            border-right: 3px solid;
+        }
+        .scanner-corner-bottom-left {
+            bottom: 40px;
+            left: 40px;
+            border-bottom: 3px solid;
+            border-left: 3px solid;
+        }
+        .scanner-corner-bottom-right {
+            bottom: 40px;
+            right: 40px;
+            border-bottom: 3px solid;
+            border-right: 3px solid;
+        }
+        .scanner-line {
+            position: absolute;
+            width: calc(100% - 80px);
+            height: 2px;
+            background-color: #4285F4;
+            top: 50%;
+            left: 40px;
+            animation: scan 2s infinite linear;
+        }
+        @keyframes scan {
+            0% {
+                top: 40px;
+            }
+            50% {
+                top: calc(100% - 40px);
+            }
+            100% {
+                top: 40px;
+            }
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 2s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .hidden {
             display: none;
+        }
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+        .session-info {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+        .google-btn {
+            background-color: #fff;
+            color: #757575;
+            border: 1px solid #dadce0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 16px;
+            border-radius: 4px;
+            font-weight: 500;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+        .google-btn:active {
+            background-color: #f1f3f4;
+        }
+        .google-icon {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+        }
+        #manual-session-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        #session-input {
+            padding: 10px;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            font-size: 16px;
+            margin-right: 10px;
+            width: 70%;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>手機端 - QR Code 掃描器</h1>
-        
-        <div id="statusContainer" class="status waiting">
-            <p id="statusMessage">請掃描電腦上顯示的 QR Code</p>
+        <header>
+            <h1>Google 授權 - 手機端</h1>
+        </header>
+
+        <div id="scanner-view" class="card">
+            <div class="status info">
+                請掃描桌面端顯示的 QR Code
+            </div>
+
+            <div id="scanner-container">
+                <video id="scanner-video" autoplay></video>
+                <div class="scanner-overlay">
+                    <div class="scanner-corner scanner-corner-top-left"></div>
+                    <div class="scanner-corner scanner-corner-top-right"></div>
+                    <div class="scanner-corner scanner-corner-bottom-left"></div>
+                    <div class="scanner-corner scanner-corner-bottom-right"></div>
+                    <div class="scanner-line"></div>
+                </div>
+            </div>
+
+            <div class="buttons">
+                <button id="start-scanner-button">開始掃描</button>
+                <button id="toggle-manual-button" class="secondary">手動輸入會話 ID</button>
+            </div>
+
+            <div id="manual-session-container" class="hidden">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">在桌面端查看會話 ID</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">將會話 ID 輸入下方框中</div>
+                </div>
+                <input type="text" id="session-input" placeholder="輸入會話 ID">
+                <button id="connect-button">連接</button>
+            </div>
         </div>
-        
-        <div id="scannerContainer">
-            <div id="reader"></div>
-            <button id="startScanBtn">開始掃描</button>
+
+        <div id="auth-view" class="card hidden">
+            <div class="status info">
+                請授權訪問您的 Google 帳戶
+            </div>
+
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">點擊下方按鈕開始 Google 授權流程</div>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">在彈出的視窗中登入您的 Google 帳戶</div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">確認授權權限</div>
+            </div>
+
+            <div class="buttons">
+                <button id="auth-google-button" class="google-btn">
+                    <svg class="google-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                        <path fill="none" d="M0 0h48v48H0z"/>
+                    </svg>
+                    使用 Google 帳戶登入
+                </button>
+                <button id="cancel-auth-button" class="secondary">取消</button>
+            </div>
         </div>
-        
-        <div id="authContainer" style="display:none; width:100%; text-align:center;">
-            <h2>Google 授權</h2>
-            <p>掃描成功! 請點擊下方按鈕進行 Google 登入</p>
-            <button id="googleSignInBtn">使用 Google 登入</button>
+
+        <div id="processing-view" class="card hidden">
+            <div class="status waiting">
+                處理中，請稍候...
+            </div>
+            <div class="loader"></div>
         </div>
-        
-        <div id="debug"></div>
-        <button id="showDebugBtn" style="margin-top: 20px; background-color: #6c757d;">顯示除錯資訊</button>
+
+        <div id="success-view" class="card hidden">
+            <div class="status success">
+                授權成功！
+            </div>
+            <p>您已成功授權，可以關閉此頁面並返回電腦端查看您的 Google 服務。</p>
+            <div class="buttons">
+                <button id="new-scan-button">掃描新的 QR Code</button>
+            </div>
+        </div>
+
+        <div id="error-view" class="card hidden">
+            <div class="status error">
+                授權失敗
+            </div>
+            <p id="error-message">處理授權時發生錯誤，請重試。</p>
+            <div class="buttons">
+                <button id="retry-button">重試</button>
+            </div>
+        </div>
+
+        <div class="session-info hidden">
+            會話 ID: <span id="session-id-display"></span>
+        </div>
     </div>
 
+    <footer>
+        <p>跨設備 Google 授權系統 &copy; 2025</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script>
         // Firebase 配置
         const firebaseConfig = {
@@ -100,224 +372,301 @@
             appId: "1:261477282402:web:557f0be058e07cd642173b",
             measurementId: "G-EB9PR17TJL"
         };
-
+        
         // 初始化 Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
-
-        // 全局變數
-        let html5QrCode;
-        let sessionData = null;
-
-        // 紀錄除錯資訊
-        function log(message) {
-            const debugElement = document.getElementById('debug');
-            const time = new Date().toLocaleTimeString();
-            debugElement.innerHTML += `<div>[${time}] ${message}</div>`;
-            debugElement.scrollTop = debugElement.scrollHeight;
-            console.log(message);
-        }
-
-        // 更新狀態消息
-        function updateStatus(message, type) {
-            const statusContainer = document.getElementById('statusContainer');
-            const statusMessage = document.getElementById('statusMessage');
+        
+        // 全局變量
+        let sessionId = '';
+        let mediaStream = null;
+        let scannerInterval = null;
+        
+        // Google OAuth 配置
+        const clientId = '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com';
+        const redirectUri = window.location.origin + window.location.pathname;
+        const scope = 'profile email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/calendar.readonly';
+        
+        // 頁面加載時初始化
+        window.onload = () => {
+            // 從 URL 獲取會話 ID
+            const urlParams = new URLSearchParams(window.location.search);
+            sessionId = urlParams.get('session');
             
-            statusMessage.textContent = message;
-            statusContainer.className = `status ${type}`;
-            log(`狀態更新: ${message}`);
-        }
-
-        // 初始化 QR Code 掃描器
-        function initScanner() {
-            html5QrCode = new Html5Qrcode("reader");
-        }
-
-        // 開始掃描
-        function startScanner() {
-            const qrConfig = { fps: 10, qrbox: { width: 250, height: 250 } };
-            
-            html5QrCode.start(
-                { facingMode: "environment" },
-                qrConfig,
-                onScanSuccess,
-                onScanFailure
-            );
-        }
-
-        // 掃描成功處理
-        function onScanSuccess(decodedText) {
-            try {
-                // 停止掃描
-                html5QrCode.stop();
+            if (sessionId) {
+                document.getElementById('session-id-display').textContent = sessionId;
+                document.querySelector('.session-info').classList.remove('hidden');
                 
-                // 解析 QR Code 數據
-                const qrData = JSON.parse(decodedText);
-                log(`掃描成功，解析數據: ${JSON.stringify(qrData)}`);
-                
-                if (qrData.sessionId && qrData.action === 'googleAuth') {
-                    // 儲存 sessionId 到本地存儲和全局變數
-                    sessionData = qrData;
-                    localStorage.setItem('sessionData', JSON.stringify(qrData));
-                    log(`已儲存 sessionId: ${qrData.sessionId}`);
-                    
-                    updateStatus('QR Code 掃描成功! 請點擊下方按鈕進行 Google 登入', 'success');
-                    
-                    // 隱藏掃描器，顯示授權按鈕
-                    document.getElementById('scannerContainer').style.display = 'none';
-                    document.getElementById('authContainer').style.display = 'block';
+                // 如果 URL 中有 code 參數，表示 OAuth 重定向
+                const code = urlParams.get('code');
+                if (code) {
+                    processAuthCode(code);
                 } else {
-                    throw new Error('QR Code 格式無效');
+                    // 否則，進入授權流程
+                    showAuthView();
+                }
+            } else {
+                // 沒有會話 ID，顯示掃描器視圖
+                showScannerView();
+            }
+            
+            // 設置事件監聽器
+            setupEventListeners();
+        };
+        
+        // 設置事件監聽器
+        function setupEventListeners() {
+            document.getElementById('start-scanner-button').addEventListener('click', startScanner);
+            document.getElementById('toggle-manual-button').addEventListener('click', toggleManualInput);
+            document.getElementById('connect-button').addEventListener('click', connectWithManualId);
+            document.getElementById('auth-google-button').addEventListener('click', startGoogleAuth);
+            document.getElementById('cancel-auth-button').addEventListener('click', goBackToScanner);
+            document.getElementById('new-scan-button').addEventListener('click', resetAndShowScanner);
+            document.getElementById('retry-button').addEventListener('click', () => {
+                if (sessionId) {
+                    showAuthView();
+                } else {
+                    showScannerView();
+                }
+            });
+        }
+        
+        // 開始掃描器
+        function startScanner() {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                    .then(stream => {
+                        mediaStream = stream;
+                        const video = document.getElementById('scanner-video');
+                        video.srcObject = stream;
+                        
+                        // 等待視頻準備就緒
+                        video.addEventListener('loadedmetadata', () => {
+                            const canvas = document.createElement('canvas');
+                            const context = canvas.getContext('2d');
+                            
+                            // 設置掃描間隔
+                            scannerInterval = setInterval(() => {
+                                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                                    canvas.height = video.videoHeight;
+                                    canvas.width = video.videoWidth;
+                                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                                    
+                                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                                        inversionAttempts: "dontInvert",
+                                    });
+                                    
+                                    if (code) {
+                                        processScanResult(code.data);
+                                    }
+                                }
+                            }, 1000 / 30); // 約 30fps
+                        });
+                    })
+                    .catch(error => {
+                        console.error('無法訪問相機:', error);
+                        showError('無法訪問您的相機，請確保已授予相機權限。');
+                    });
+            } else {
+                showError('您的瀏覽器不支持相機訪問，請嘗試使用手動輸入會話 ID。');
+            }
+        }
+        
+        // 處理掃描結果
+        function processScanResult(result) {
+            try {
+                stopScanner();
+                
+                // 解析掃描的 URL
+                const url = new URL(result);
+                const urlParams = new URLSearchParams(url.search);
+                sessionId = urlParams.get('session');
+                
+                if (sessionId) {
+                    document.getElementById('session-id-display').textContent = sessionId;
+                    document.querySelector('.session-info').classList.remove('hidden');
+                    
+                    // 進入授權流程
+                    showAuthView();
+                } else {
+                    showError('無效的 QR Code，找不到會話 ID。');
                 }
             } catch (error) {
-                updateStatus('掃描出錯: ' + error.message, 'error');
-                // 重新啟用掃描按鈕
-                document.getElementById('startScanBtn').disabled = false;
+                console.error('處理掃描結果錯誤:', error);
+                showError('無效的 QR Code 格式。');
             }
         }
-
-        // 掃描失敗處理
-        function onScanFailure(error) {
-            console.warn(`掃描失敗: ${error}`);
+        
+        // 停止掃描器
+        function stopScanner() {
+            if (scannerInterval) {
+                clearInterval(scannerInterval);
+                scannerInterval = null;
+            }
+            
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
         }
-
-        // 啟動 Google 授權流程
+        
+        // 切換到手動輸入
+        function toggleManualInput() {
+            const manualContainer = document.getElementById('manual-session-container');
+            
+            if (manualContainer.classList.contains('hidden')) {
+                manualContainer.classList.remove('hidden');
+                document.getElementById('toggle-manual-button').textContent = '返回掃描';
+                stopScanner();
+                document.getElementById('scanner-container').style.display = 'none';
+                document.getElementById('start-scanner-button').style.display = 'none';
+            } else {
+                manualContainer.classList.add('hidden');
+                document.getElementById('toggle-manual-button').textContent = '手動輸入會話 ID';
+                document.getElementById('scanner-container').style.display = 'block';
+                document.getElementById('start-scanner-button').style.display = 'block';
+            }
+        }
+        
+        // 使用手動輸入的會話 ID 連接
+        function connectWithManualId() {
+            const input = document.getElementById('session-input');
+            sessionId = input.value.trim();
+            
+            if (sessionId) {
+                document.getElementById('session-id-display').textContent = sessionId;
+                document.querySelector('.session-info').classList.remove('hidden');
+                
+                // 進入授權流程
+                showAuthView();
+            } else {
+                alert('請輸入有效的會話 ID。');
+            }
+        }
+        
+        // 開始 Google 授權
         function startGoogleAuth() {
-            if (!sessionData) {
-                updateStatus('錯誤: 沒有有效的 sessionId', 'error');
-                return;
-            }
-            
-            // Google OAuth 客戶端 ID
-            const clientId = '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com';
-            const redirectUri = window.location.origin + window.location.pathname;
-            
-            // 定義需要的範圍
-            const scope = 'profile email';
-            
-            // 將 sessionId 加入 state 參數，以便重新導向後保留
-            const state = btoa(JSON.stringify(sessionData));
-            
-            // 構建授權 URL
-            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
-            
-            log(`開始 Google 授權流程，導向至: ${authUrl}`);
+            // 構建 OAuth URL
+            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${sessionId}`;
             
             // 重定向到 Google 授權頁面
             window.location.href = authUrl;
         }
-
-        // 解析 URL 中的令牌和狀態參數
-        function parseUrlParams() {
-            const hash = window.location.hash.substring(1);
-            const params = new URLSearchParams(hash);
-            
-            const token = params.get('access_token');
-            const state = params.get('state');
-            
-            log(`解析 URL 參數 - token: ${token ? '存在' : '不存在'}, state: ${state ? '存在' : '不存在'}`);
-            
-            let stateData = null;
-            if (state) {
-                try {
-                    stateData = JSON.parse(atob(state));
-                    log(`解析 state 數據: ${JSON.stringify(stateData)}`);
-                } catch (e) {
-                    log(`解析 state 數據出錯: ${e.message}`);
-                }
-            }
-            
-            return {
-                token: token,
-                stateData: stateData
-            };
-        }
-
-        // 發送數據到 Firebase
-        function sendDataToFirebase(sessionId, token) {
-            log(`準備發送數據到 Firebase，sessionId: ${sessionId}`);
-            if (!sessionId || !token) {
-               log('錯誤: sessionId 或 token 為空');
-               updateStatus('發送失敗: 缺少必要參數', 'error');
-               return Promise.reject(new Error('缺少必要參數'));
-            }           
-            const sessionRef = database.ref('sessions/' + sessionId);
-            const data = {
-                token: token,
-                timestamp: Date.now()
-            };
-            log(`要發送的數據: ${JSON.stringify({token: token.substring(0, 10) + '...', timestamp: data.timestamp})}`);
-            
-            return sessionRef.set(data)
-            .then(() => {
-                log(`數據成功發送到 Firebase`);
         
-                // 確認數據是否真的寫入
-                return sessionRef.once('value');
-            })
-            .then((snapshot) => {
-                const checkData = snapshot.val();
-                if (checkData && checkData.token) {
-                    log(`確認: 數據已成功寫入 Firebase`);
-                    updateStatus('授權成功! 已將 Google 授權令牌發送到電腦端', 'success');
-                    return true;
-                } else {
-                    throw new Error('數據似乎未成功寫入');
+        // 處理授權碼
+        function processAuthCode(code) {
+            showProcessingView();
+            
+            // 在實際應用中，您應該將代碼發送到您的後端服務器
+            // 服務器將使用此代碼和客戶端密鑰換取訪問令牌
+            // 這裡我們模擬此過程
+            
+            // 模擬從服務器獲取令牌
+            setTimeout(() => {
+                // 假設這是從服務器獲取的令牌
+                const token = `simulated_token_${Math.random().toString(36).substring(2, 15)}`;
+                
+                try {
+                    // 加密令牌
+                    const encryptedToken = encryptToken(token);
+                    
+                    // 將加密的令牌保存到 Firebase
+                    saveTokenToFirebase(encryptedToken)
+                        .then(() => {
+                            showSuccessView();
+                        })
+                        .catch(error => {
+                            console.error('保存令牌錯誤:', error);
+                            showError('無法將授權結果發送到桌面端。');
+                        });
+                } catch (error) {
+                    console.error('加密令牌錯誤:', error);
+                    showError('處理授權時發生錯誤。');
                 }
-            })
-            .catch((error) => {
-                log(`發送數據到 Firebase 失敗: ${error.message}`);
-                updateStatus('發送數據到電腦端失敗: ' + error.message, 'error');
-                return false;
+            }, 2000);
+        }
+        
+        // 加密令牌
+        function encryptToken(token) {
+            // 使用會話 ID 作為密鑰的一部分
+            const key = CryptoJS.SHA256(sessionId + "SecretKey").toString();
+            return CryptoJS.AES.encrypt(token, key).toString();
+        }
+        
+        // 將令牌保存到 Firebase
+        function saveTokenToFirebase(encryptedToken) {
+            return database.ref(`sessions/${sessionId}`).set({
+                token: encryptedToken,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
             });
         }
-
-        // 初始化頁面
-        window.onload = function() {
-            log(`頁面加載完成，開始初始化...`);
-            initScanner();
+        
+        // 顯示錯誤
+        function showError(message) {
+            hideAllViews();
+            document.getElementById('error-view').classList.remove('hidden');
+            document.getElementById('error-message').textContent = message || '處理授權時發生錯誤，請重試。';
+        }
+        
+        // 返回掃描器視圖
+        function goBackToScanner() {
+            sessionId = '';
+            document.querySelector('.session-info').classList.add('hidden');
+            showScannerView();
+        }
+        
+        // 重置並顯示掃描器
+        function resetAndShowScanner() {
+            sessionId = '';
+            document.querySelector('.session-info').classList.add('hidden');
+            showScannerView();
+        }
+        
+        // 顯示掃描器視圖
+        function showScannerView() {
+            hideAllViews();
+            document.getElementById('scanner-view').classList.remove('hidden');
+            document.getElementById('scanner-container').style.display = 'block';
+            document.getElementById('start-scanner-button').style.display = 'block';
+            document.getElementById('manual-session-container').classList.add('hidden');
+            document.getElementById('toggle-manual-button').textContent = '手動輸入會話 ID';
+        }
+        
+        // 顯示授權視圖
+        function showAuthView() {
+            hideAllViews();
+            document.getElementById('auth-view').classList.remove('hidden');
+        }
+        
+        // 顯示處理中視圖
+        function showProcessingView() {
+            hideAllViews();
+            document.getElementById('processing-view').classList.remove('hidden');
+        }
+        
+        // 顯示成功視圖
+        function showSuccessView() {
+            hideAllViews();
+            document.getElementById('success-view').classList.remove('hidden');
+        }
+        
+        // 隱藏所有視圖
+        function hideAllViews() {
+            const views = [
+                'scanner-view',
+                'auth-view',
+                'processing-view',
+                'success-view',
+                'error-view'
+            ];
             
-            // 設置掃描按鈕事件處理
-            document.getElementById('startScanBtn').addEventListener('click', function() {
-                this.disabled = true;
-                startScanner();
+            views.forEach(id => {
+                document.getElementById(id).classList.add('hidden');
             });
             
-            // 設置 Google 登入按鈕事件處理
-            document.getElementById('googleSignInBtn').addEventListener('click', startGoogleAuth);
-            
-            // 檢查是否從 Google 授權重定向回來
-            const urlParams = parseUrlParams();
-            if (urlParams.token && urlParams.stateData) {
-                log(`從 Google 授權重定向回來，提取的 token 和 state 數據有效`);
-                
-                // 使用 state 中的 sessionId 數據
-                sendDataToFirebase(urlParams.stateData.sessionId, urlParams.token);
-            } else {
-                // 從 localStorage 恢復 session 數據
-                const savedSession = localStorage.getItem('sessionData');
-                if (savedSession) {
-                    try {
-                        sessionData = JSON.parse(savedSession);
-                        log(`從 localStorage 恢復 sessionData: ${JSON.stringify(sessionData)}`);
-                    } catch (e) {
-                        log(`恢復 sessionData 失敗: ${e.message}`);
-                    }
-                }
-            }
-            
-            // 顯示除錯資訊按鈕
-            document.getElementById('showDebugBtn').addEventListener('click', function() {
-                const debugElement = document.getElementById('debug');
-                if (debugElement.style.display === 'none') {
-                    debugElement.style.display = 'block';
-                    this.textContent = '隱藏除錯資訊';
-                } else {
-                    debugElement.style.display = 'none';
-                    this.textContent = '顯示除錯資訊';
-                }
-            });
-        };
+            stopScanner();
+        }
     </script>
 </body>
 </html>
