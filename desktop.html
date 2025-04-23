@@ -304,30 +304,32 @@
             if (authTokenRef) {
                 authTokenRef.off();
             }
-            
+    
             // 清除用戶資訊顯示
             document.getElementById('user-info').style.display = 'none';
             document.getElementById('auth-flow').style.display = 'block';
-            
+    
             // 隱藏成功和錯誤狀態
             document.getElementById('status-success').classList.add('hidden');
             document.getElementById('status-error').classList.add('hidden');
             document.getElementById('status-waiting').classList.remove('hidden');
-            
+    
             // 生成新的會話 ID
             sessionId = generateSessionId();
             document.getElementById('session-id').textContent = sessionId;
-            
+    
             // 創建移動端 URL (包含會話 ID)
             const mobileUrl = `${window.location.origin}/mobile.html?session=${sessionId}`;
-            
+    
             // 生成 QR Code
             const qrcode = document.getElementById('qrcode');
             qrcode.innerHTML = '';
-            QRCode.toCanvas(qrcode, mobileUrl, { width: 200 }, function (error) {
-                if (error) console.error(error);
+            new QRCode(qrcode, {
+                text: mobileUrl,
+                width: 200,
+                height: 200
             });
-            
+    
             // 設置 Firebase 監聽器
             setupFirebaseListener();
         }
