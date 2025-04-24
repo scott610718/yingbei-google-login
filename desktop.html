@@ -335,11 +335,28 @@
                 
                 // 隱藏 QR Code
                 document.getElementById('qrcode-container').style.display = 'none';
+                    // 在成功獲取用戶信息後，設置或更新 Google One-Tap 登入狀態
+                updateGoogleLoginStatus(googleToken, data);
             })
             .catch(error => {
                 log(`獲取用戶資訊失敗: ${error.message}`);
                 updateStatus('獲取 Google 用戶資訊失敗: ' + error.message, 'error');
             });
+        }
+
+        function updateGoogleLoginStatus(token, userData) {
+            // 使用 Google Identity Services 將登入狀態存儲到瀏覽器
+            const tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: googleClientId,
+                scope: googleScopes,
+                callback: () => {} // 空回調函數
+           });
+            // 設置 token 到 gapi
+            if (gapi && gapi.client) {
+                gapi.client.setToken({ access_token: token });
+            }
+            // 顯示登入成功信息
+            log(`已設置用戶 ${userData.email} 的登入狀態`);
         }
 
         // 在 desktop.html 的 fetchGoogleUserInfo 函數之後添加這段代碼
@@ -420,24 +437,24 @@
             // 設置服務標題
             let serviceTitle = '';
             let apiCall = null;
-            //   let serviceUrl = '';
+            let serviceUrl = '';
             
             switch(service) {
                  case 'mail':
                      serviceTitle = 'Gmail';  
-                     serviceUrl = 'https://mail.google.com/mail/u/0/';
+                     serviceUrl = `https://mail.google.com/mail/u/0/?authuser=${googleUserInfo.email}`;
                      break;
                  case 'drive':
                      serviceTitle = 'Google Drive';
-                     serviceUrl = 'https://drive.google.com/drive/u/0/';
+                     serviceUrl = `https://drive.google.com/drive/u/0/?authuser=${googleUserInfo.email}`;
                      break;
                  case 'calendar':
                      serviceTitle = 'Google Calendar';
-                     serviceUrl = 'https://calendar.google.com/calendar/u/0/';
+                     serviceUrl = `https://calendar.google.com/calendar/u/0/?authuser=${googleUserInfo.email}`;
                      break;
                  case 'docs':
                      serviceTitle = 'Google Docs';
-                     serviceUrl = 'https://docs.google.com/document/u/0/';
+                     serviceUrl = `https://docs.google.com/document/u/0/?authuser=${googleUserInfo.email}`;
                      break;
                  default:
                      serviceTitle = '未知服務';
@@ -461,6 +478,13 @@
             document.getElementById('google-services').style.display = 'block';
             document.getElementById('service-content').style.display = 'none';
             document.getElementById('backToServicesBtn').style.display = 'none';
+        }
+
+        // 新增函數，使用 token 和 cookie 進行身份認證
+        function openServiceWithAuth(url) {
+            // 使用 window.open() 打開服務，但在新窗口打開前先設置相關 cookie
+            // 由於安全限制，直接設置第三方 cookie 的能力有限，因此最佳方案是使用 authuser 參數
+            window.open(url, '_blank');
         }
         
         // 登出功能
