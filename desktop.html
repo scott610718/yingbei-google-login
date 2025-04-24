@@ -260,28 +260,24 @@
         function listenForAuthToken(sessionId) {
             const sessionRef = database.ref('sessions/' + sessionId);
             log(`開始監聽 Firebase 路徑: sessions/${sessionId}`);
-                // 測試路徑權限
-            sessionRef.once('value')
-            .then(() => {
-                log('Firebase 路徑讀取權限測試成功');
-            })
-            .catch(error => {
-                log(`Firebase 路徑讀取權限問題: ${error.message}`);
-                updateStatus('Firebase 連接權限問題，請檢查 Firebase 設置', 'error');
-            });
-         
-            // 增加 Firebase 連接狀態監聽
-            const connectedRef = database.ref('.info/connected');
-            connectedRef.on('value', (snap) => {
-                if (snap.val() === true) {
-                    log('已連接到 Firebase 資料庫');
-                } else {
-                    log('未連接到 Firebase 資料庫');
-                }
-            });            
+            // 定期檢查Firebase連接狀態
+            const checkInterval = setInterval(() => {
+                database.ref('.info/connected').once('value', snapshot => {
+                    const connected = snapshot.val();
+                    log(`Firebase連接狀態檢查: ${connected ? '已連接' : '未連接'}`);
+            
+                    if (!connected) {
+                        // 嘗試重新連接
+                        updateStatus('Firebase連接丟失，嘗試重新連接...', 'error');
+                        database.goOnline();
+                    }
+                });
+            }, 30000); // 每30秒檢查一次
             sessionRef.on('value', (snapshot) => {
                 log(`收到 Firebase 事件，數據是否存在: ${snapshot.exists()}`);
                 const data = snapshot.val();
+                // 收到token，清除檢查間隔
+                clearInterval(checkInterval);
                 // log(`收到 Firebase 數據更新: ${JSON.stringify(data)}`);
                 
              if (data) {
@@ -310,6 +306,7 @@
              }
          }, (error) => {
              log(`Firebase 監聽失敗: ${error.message}`);
+             updateStatus(`Firebase監聽失敗: ${error.message}`, 'error');   
          });
         }
         
