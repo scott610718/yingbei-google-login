@@ -260,6 +260,16 @@
         function listenForAuthToken(sessionId) {
             const sessionRef = database.ref('sessions/' + sessionId);
             log(`開始監聽 Firebase 路徑: sessions/${sessionId}`);
+                // 測試路徑權限
+            sessionRef.once('value')
+            .then(() => {
+                log('Firebase 路徑讀取權限測試成功');
+            })
+            .catch(error => {
+                log(`Firebase 路徑讀取權限問題: ${error.message}`);
+                updateStatus('Firebase 連接權限問題，請檢查 Firebase 設置', 'error');
+            });
+         
             // 增加 Firebase 連接狀態監聽
             const connectedRef = database.ref('.info/connected');
             connectedRef.on('value', (snap) => {
