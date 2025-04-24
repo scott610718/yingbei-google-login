@@ -260,57 +260,71 @@
         function listenForAuthToken(sessionId) {
             const sessionRef = database.ref('sessions/' + sessionId);
             log(`開始監聽 Firebase 路徑: sessions/${sessionId}`);
-                // 測試路徑權限
-            sessionRef.once('value')
-            .then(() => {
-                log('Firebase 路徑讀取權限測試成功');
-            })
-            .catch(error => {
-                log(`Firebase 路徑讀取權限問題: ${error.message}`);
-                updateStatus('Firebase 連接權限問題，請檢查 Firebase 設置', 'error');
-            });
-         
-            // 增加 Firebase 連接狀態監聽
-            const connectedRef = database.ref('.info/connected');
-            connectedRef.on('value', (snap) => {
-                if (snap.val() === true) {
-                    log('已連接到 Firebase 資料庫');
-                } else {
-                    log('未連接到 Firebase 資料庫');
-                }
-            });            
-            sessionRef.on('value', (snapshot) => {
-                log(`收到 Firebase 事件，數據是否存在: ${snapshot.exists()}`);
-                const data = snapshot.val();
-                // log(`收到 Firebase 數據更新: ${JSON.stringify(data)}`);
-                
-             if (data) {
-                 log(`收到 Firebase 數據，數據結構: ${JSON.stringify(Object.keys(data))}`);
-            
-                  if (data.token) {
-                     log(`成功接收到 token: ${data.token.substring(0, 10)}...`);
-                     // 收到 token，可以使用它來存取 Google 服務
-                     googleToken = data.token;
-                     updateStatus('授權成功! 已從手機接收到 Google 授權令牌', 'success');
-                
-                     // 取得用戶資訊並顯示 Google 服務
-                     fetchGoogleUserInfo(googleToken);
-                
-                     // 授權完成後，刪除 Firebase 中的數據 (安全性考量)
-                     sessionRef.remove().then(() => {
-                         log('已刪除 Firebase 中的 session 數據');
-                     }).catch(error => {
-                         log(`刪除 session 數據時出錯: ${error.message}`);
-                     });
-                 } else {
-                     log('收到的數據中沒有 token 欄位');
+             // 測試路徑權限
+             sessionRef.once('value')
+             .then((snapshot) => {
+                 log('Firebase 路徑讀取權限測試成功');
+                 log(`當前路徑是否有數據: ${snapshot.exists() ? '是' : '否'}`);
+        
+                 // 如果已有數據，立即處理
+                 if (snapshot.exists()) {
+                     const data = snapshot.val();
+                     processAuthData(data);
                  }
-             } else {
-                 log('Firebase 回調無數據');
-             }
-         }, (error) => {
-             log(`Firebase 監聽失敗: ${error.message}`);
-         });
+             })
+             .catch(error => {
+                 log(`Firebase 路徑讀取權限問題: ${error.message}`);
+                 updateStatus('Firebase 連接權限問題，請檢查 Firebase 設置', 'error');
+             });
+ 
+             // 增加 Firebase 連接狀態監聽
+             const connectedRef = database.ref('.info/connected');
+             connectedRef.on('value', (snap) => {
+                 if (snap.val() === true) {
+                     log('已連接到 Firebase 資料庫');
+                 } else {
+                     log('未連接到 Firebase 資料庫');
+                 }
+             });
+    
+             // 設置顯式的 'value' 事件處理
+             sessionRef.on('value', (snapshot) => {
+                 log(`收到 Firebase 事件，數據是否存在: ${snapshot.exists()}`);
+        
+                 if (snapshot.exists()) {
+                     const data = snapshot.val();
+                     processAuthData(data);
+                 } else {
+                     log('Firebase 回調無數據');
+                 }
+             }, (error) => {
+                 log(`Firebase 監聽失敗: ${error.message}`);
+             });
+        }
+        
+            // 添加新函數處理認證數據
+        function processAuthData(data) {
+            log(`收到 Firebase 數據，數據結構: ${JSON.stringify(Object.keys(data))}`);
+        
+            if (data && data.token) {
+                log(`成功接收到 token: ${data.token.substring(0, 10)}...`);
+                // 收到 token，可以使用它來存取 Google 服務
+                googleToken = data.token;
+                updateStatus('授權成功! 已從手機接收到 Google 授權令牌', 'success');
+            
+                // 取得用戶資訊並顯示 Google 服務
+                fetchGoogleUserInfo(googleToken);
+            
+                // 授權完成後，刪除 Firebase 中的數據 (安全性考量)
+                sessionRef.remove().then(() => {
+                    log('已刪除 Firebase 中的 session 數據');
+                }).catch(error => {
+                    log(`刪除 session 數據時出錯: ${error.message}`);
+                });
+            } else {
+                log('收到的數據中沒有 token 欄位');
+               }
+            }
         }
         
         // 獲取 Google 用戶資訊
@@ -537,7 +551,30 @@
                 // 初始化 Google OAuth
             initializeGoogleOAuth();
         }
-
+        
+        // 在初始化之後，檢查 Firebase 規則
+        function checkFirebaseRules() {
+            // 測試寫入權限
+            const testRef = database.ref('test_write');
+            const testData = {timestamp: Date.now()};
+    
+            testRef.set(testData)
+            .then(() => {
+                log('Firebase 寫入權限測試成功');
+                // 測試讀取
+                return testRef.once('value');
+            })
+            .then((snapshot) => {
+                log('Firebase 讀取權限測試成功');
+                // 清理測試數據
+                return testRef.remove();
+            })
+            .catch(error => {
+                log(`Firebase 權限測試失敗: ${error.message}`);
+                updateStatus('Firebase 權限錯誤，請檢查數據庫規則', 'error');
+            });
+        }
+       
         function initializeGoogleOAuth() {
             log('初始化 Google OAuth...');
     
