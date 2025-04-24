@@ -283,11 +283,20 @@
                log('錯誤: sessionId 或 token 為空');
                updateStatus('發送失敗: 缺少必要參數', 'error');
                return Promise.reject(new Error('缺少必要參數'));
-            }           
-            const sessionRef = database.ref('sessions/' + sessionId);
-            const data = {
-                token: token,
-                timestamp: Date.now()
+            }
+                // 測試 Firebase 連接
+            log('測試 Firebase 連接...');
+            const testRef = database.ref('test');
+            return testRef.set({
+                timestamp: Date.now(),
+                message: 'Test connection'
+            })
+            .then(() => {
+                log('Firebase 連接測試成功');
+             const sessionRef = database.ref('sessions/' + sessionId);
+             const data = {
+                   token: token,
+                   timestamp: Date.now()
             };
             log(`要發送的數據: ${JSON.stringify({token: token.substring(0, 10) + '...', timestamp: data.timestamp})}`);
             
@@ -296,7 +305,7 @@
                 log(`數據成功發送到 Firebase`);
         
                 // 確認數據是否真的寫入
-                return sessionRef.once('value');
+                 return database.ref('sessions/' + sessionId).once('value');
             })
             .then((snapshot) => {
                 const checkData = snapshot.val();
@@ -309,14 +318,36 @@
                 }
             })
             .catch((error) => {
-                log(`發送數據到 Firebase 失敗: ${error.message}`);
-                updateStatus('發送數據到電腦端失敗: ' + error.message, 'error');
-                return false;
-            });
+                     log(`Firebase 操作失敗: ${error.message}`);
+                     if (error.code) {
+                         log(`Firebase 錯誤代碼: ${error.code}`);
+                     }
+                     updateStatus('Firebase 操作失敗: ' + error.message, 'error');
+                     return false;
+                 });
         }
 
         // 初始化頁面
         window.onload = function() {
+            // 測試 Firebase 初始化
+            log('測試 Firebase 初始化...');
+            try {
+                const testRef = database.ref('test');
+                testRef.set({
+                    timestamp: Date.now(),
+                    message: 'Test connection'
+                })
+                .then(() => {
+                    log('Firebase 初始化測試成功');
+                })
+                .catch(error => {
+                    log(`Firebase 初始化測試失敗: ${error.message}`);
+                    updateStatus('Firebase 連接問題，請檢查網絡和配置', 'error');
+                });
+            } catch (e) {
+                log(`Firebase 初始化異常: ${e.message}`);
+                updateStatus('Firebase 初始化失敗', 'error');
+            }    
             log(`頁面加載完成，開始初始化...`);
             initScanner();
             
