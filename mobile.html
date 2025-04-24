@@ -193,7 +193,7 @@
             const redirectUri = window.location.origin + window.location.pathname;
             
             // 定義需要的範圍
-            const scope = 'profile email';
+            const scope = 'profile email https://www.googleapis.com/auth/gmail https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/documents';
             
             // 將 sessionId 加入 state 參數，以便重新導向後保留
             const state = btoa(JSON.stringify(sessionData));
