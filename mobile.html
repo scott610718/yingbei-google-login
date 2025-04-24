@@ -209,13 +209,16 @@
 
         // 解析 URL 中的令牌和狀態參數
         function parseUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const state = urlParams.get('state');
+            const error = urlParams.get('error');
+            const errorDescription = urlParams.get('error_description');
+
+            // 同時檢查 hash（用於處理隱式授權流程）
             const hash = window.location.hash.substring(1);
-            const params = new URLSearchParams(hash);
-            
-            const token = params.get('access_token');
-            const state = params.get('state');
-            const error = params.get('error');
-            const errorDescription = params.get('error_description');
+            const hashParams = new URLSearchParams(hash);
+            const token = hashParams.get('access_token') || null;
     
             if (error) {
                 log(`Google 授權錯誤: ${error}, 錯誤描述: ${errorDescription || '無'}`);
@@ -232,13 +235,36 @@
                     log(`解析 state 數據出錯: ${e.message}`);
                 }
             }
-            
+                // 如果有授權碼，需要交換獲取訪問令牌
+           if (code && stateData) {
+               // 實現 code 到 token 的交換
+               return exchangeCodeForToken(code, stateData);
+           }
             return {
                 token: token,
                 stateData: stateData
             };
         }
 
+        // 新增函數: 交換授權碼獲取訪問令牌
+        function exchangeCodeForToken(code, stateData) {
+            // 您需要一個伺服器端點來安全地交換令牌
+            // 這裡為前端實現方案 (實際應在後端處理)
+            const clientId = '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com';
+            const redirectUri = window.location.origin + window.location.pathname;
+    
+            log('交換授權碼獲取訪問令牌...');
+    
+            // 使用隱藏的 iframe 代理或從瀏覽器發送交換請求
+            const tokenData = { 
+                token: "SIMULATED_TOKEN_FROM_CODE_EXCHANGE", // 實際項目中需真實交換
+                stateData: stateData 
+            };
+    
+            log('模擬交換授權碼成功');
+            return tokenData;
+        }
+        
         // 發送數據到 Firebase
         function sendDataToFirebase(sessionId, token) {
             log(`準備發送數據到 Firebase，sessionId: ${sessionId}`);
@@ -252,12 +278,17 @@
                 token: token,
                 timestamp: Date.now()
             };
+            log(`Firebase 路徑: sessions/${sessionId}`);
             log(`要發送的數據: ${JSON.stringify({token: token.substring(0, 10) + '...', timestamp: data.timestamp})}`);
-            
+            // 確保 Firebase 實例正確初始化
+            if (!database) {
+                log('Firebase 數據庫未初始化');
+                updateStatus('Firebase 連接失敗', 'error');
+                return Promise.reject(new Error('Firebase 未初始化'));
+            }            
             return sessionRef.set(data)
             .then(() => {
-                log(`數據成功發送到 Firebase`);
-        
+                log(`數據成功發送到 Firebase`);        
                 // 確認數據是否真的寫入
                 return sessionRef.once('value');
             })
