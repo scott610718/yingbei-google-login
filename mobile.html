@@ -193,13 +193,13 @@
             const redirectUri = window.location.origin + window.location.pathname;
             
             // 定義需要的範圍
-            const scope = 'profile email https://www.googleapis.com/auth/gmail https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/documents';
+            const scope = 'profile email https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.compose';
             
             // 將 sessionId 加入 state 參數，以便重新導向後保留
             const state = btoa(JSON.stringify(sessionData));
             
             // 構建授權 URL
-            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
+            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}&access_type=offline&prompt=consent`;
             
             log(`開始 Google 授權流程，導向至: ${authUrl}`);
             
@@ -214,7 +214,13 @@
             
             const token = params.get('access_token');
             const state = params.get('state');
-            
+            const error = params.get('error');
+            const errorDescription = params.get('error_description');
+    
+            if (error) {
+                log(`Google 授權錯誤: ${error}, 錯誤描述: ${errorDescription || '無'}`);
+                updateStatus(`授權失敗: ${error} - ${errorDescription || '無詳細信息'}`, 'error');
+            }
             log(`解析 URL 參數 - token: ${token ? '存在' : '不存在'}, state: ${state ? '存在' : '不存在'}`);
             
             let stateData = null;
