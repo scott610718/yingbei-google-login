@@ -199,8 +199,7 @@
             const state = btoa(JSON.stringify(sessionData));
             
             // 構建授權 URL
-            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}&access_type=offline&prompt=consent`;
-            
+            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}&access_type=offline&prompt=consent`;
             log(`開始 Google 授權流程，導向至: ${authUrl}`);
             
             // 重定向到 Google 授權頁面
@@ -209,22 +208,21 @@
 
         // 解析 URL 中的令牌和狀態參數
         function parseUrlParams() {
+            // 從 URL 的 hash 片段獲取參數
             const hash = window.location.hash.substring(1);
             const params = new URLSearchParams(hash);
-           // 修改這裡：我們需要檢查URL的query參數部分，而不是hash部分
-           const urlParams = new URLSearchParams(window.location.search);            
+    
             const token = params.get('access_token');
-            const code = urlParams.get('code');
-            const state = urlParams.get('state');
-            const error = urlParams.get('error');
+            const state = params.get('state');
+            const error = params.get('error');
             const errorDescription = params.get('error_description');
-            log(`解析URL參數 - code: ${code ? '存在' : '不存在'}, state: ${state ? '存在' : '不存在'}`);
+
             if (error) {
                 log(`Google 授權錯誤: ${error}, 錯誤描述: ${errorDescription || '無'}`);
                 updateStatus(`授權失敗: ${error} - ${errorDescription || '無詳細信息'}`, 'error');
             }
             log(`解析 URL 參數 - token: ${token ? '存在' : '不存在'}, state: ${state ? '存在' : '不存在'}`);
-            
+    
             let stateData = null;
             if (state) {
                 try {
@@ -234,12 +232,10 @@
                     log(`解析 state 數據出錯: ${e.message}`);
                 }
             }
-            
+    
             return {
-                code: code,
                 token: token,
-                stateData: stateData,
-                error: error
+                stateData: stateData
             };
         }
 
@@ -337,11 +333,8 @@
             const urlParams = parseUrlParams();
             if (urlParams.code && urlParams.stateData) {
                 log(`從Google授權重定向回來，提取的授權碼和state數據有效`);
-                    // 使用授權碼換取令牌
-            exchangeCodeForToken(urlParams.code, window.location.origin + window.location.pathname)
-                .then(token => {
-                    // 使用state中的sessionId數據
-                    return sendDataToFirebase(urlParams.stateData.sessionId, token);
+                // 使用 state 中的 sessionId 數據
+               sendDataToFirebase(urlParams.stateData.sessionId, urlParams.token)
                 })
                 .then(success => {
                     if (success) {
@@ -357,15 +350,16 @@
                 log(`Google授權錯誤: ${urlParams.error}`);
                 updateStatus(`授權失敗: ${urlParams.error}`, 'error');
             } else {
-                // 從localStorage恢復session數據
-                const savedSession = localStorage.getItem('sessionData');
-                if (savedSession) {
-                    try {
-                        sessionData = JSON.parse(savedSession);
-                        log(`從localStorage恢復sessionData: ${JSON.stringify(sessionData)}`);
-                    } catch (e) {
-                        log(`恢復sessionData失敗: ${e.message}`);
-                    }
+                   // 從 localStorage 恢復 session 數據或處理 OAuth 回調
+                  const savedSession = localStorage.getItem('sessionData');
+                  if (savedSession) {
+                      try {
+                          sessionData = JSON.parse(savedSession);
+                          log(`從 localStorage 恢復 sessionData: ${JSON.stringify(sessionData)}`);
+                      } catch (e) {
+                          log(`恢復 sessionData 失敗: ${e.message}`);
+                      }
+                  }
             }
          }
             
