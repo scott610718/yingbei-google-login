@@ -7,9 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
-    <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://apis.google.com/js/api.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -69,31 +67,6 @@
             overflow-y: auto;
             display: none;
         }
-        .google-services {
-            display: none;
-            margin-top: 20px;
-            text-align: center;
-        }
-        .google-service-item {
-            display: inline-block;
-            margin: 10px;
-            padding: 15px;
-            width: 120px;
-            height: 120px;
-            border-radius: 10px;
-            background-color: #f8f9fa;
-            cursor: pointer;
-            transition: transform 0.2s;
-            vertical-align: top;
-        }
-        .google-service-item:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-        .service-icon {
-            font-size: 36px;
-            margin-bottom: 10px;
-        }
         .user-profile {
             display: none;
             margin: 20px 0;
@@ -108,23 +81,14 @@
         .user-actions {
             margin-top: 20px;
         }
-        .content-container {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
+        .welcome-message {
             margin-top: 20px;
-            width: 100%;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
             max-width: 600px;
+            text-align: center;
             display: none;
-        }
-        .service-title {
-            font-weight: bold;
-            margin-top: 8px;
-        }
-        iframe {
-            width: 100%;
-            height: 500px;
-            border: none;
         }
     </style>
 </head>
@@ -138,7 +102,6 @@
         <!-- 初始畫面：QR Code 掃描區 -->
         <div id="qrcode-container">
             <div id="qrcode"></div>
-            <!-- Google One Tap 登入按鈕將在這裡動態添加 -->
         </div>
         
         <!-- 用戶登入成功後顯示資訊 -->
@@ -148,52 +111,22 @@
             <p id="user-email">用戶郵箱</p>
         </div>
         
-        <!-- Google 服務選項 -->
-        <div id="google-services" class="google-services">
-            <h2>Google 服務</h2>
-            <div class="google-service-item" onclick="loadGoogleService('mail')">
-                <div class="service-icon">📧</div>
-                <div class="service-title">Gmail</div>
-            </div>
-            <div class="google-service-item" onclick="loadGoogleService('drive')">
-                <div class="service-icon">📁</div>
-                <div class="service-title">Drive</div>
-            </div>
-            <div class="google-service-item" onclick="loadGoogleService('calendar')">
-                <div class="service-icon">📅</div>
-                <div class="service-title">Calendar</div>
-            </div>
-            <div class="google-service-item" onclick="loadGoogleService('docs')">
-                <div class="service-icon">📝</div>
-                <div class="service-title">Docs</div>
-            </div>
-        </div>
-        
-        <!-- 服務內容顯示區 -->
-        <div id="service-content" class="content-container">
-            <h2 id="service-header">服務名稱</h2>
-            <div id="service-frame-container">
-                <!-- 這裡會動態插入內容 -->
-            </div>
+        <!-- 歡迎訊息 -->
+        <div id="welcome-message" class="welcome-message">
+            <h2>登入成功！</h2>
+            <p>您已成功使用 Google 帳號完成登入。</p>
+            <p>您現在可以使用完整的 Google 服務，無需再次輸入密碼。</p>
+            <p>請點擊下方按鈕開啟 Google 服務。</p>
+            <button onclick="window.open('https://www.google.com', '_blank')">開啟 Google</button>
         </div>
         
         <!-- 用戶操作按鈕 -->
         <div id="user-actions" class="user-actions" style="display:none;">
-            <button id="backToServicesBtn" onclick="showServices()" style="display:none;">返回服務列表</button>
             <button id="logoutBtn" onclick="logout()">登出</button>
         </div>
         
         <div id="debug"></div>
         <button id="showDebugBtn" style="margin-top: 20px; background-color: #6c757d;">顯示除錯資訊</button>
-    </div>
-
-    <!-- Google One Tap 配置 -->
-    <div id="g_id_onload" 
-         data-client_id="130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com"
-         data-context="signin"
-         data-ux_mode="popup"
-         data-callback="handleGoogleOneTapResponse"
-         data-auto_prompt="false">
     </div>
 
     <script>
@@ -211,25 +144,14 @@
         
         // Google API 客戶端 ID
         const googleClientId = "130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com";
-         
-        // 允許的 Google API 範圍
-        const googleScopes = [
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/gmail.readonly',
-            'https://www.googleapis.com/auth/drive.readonly',
-            'https://www.googleapis.com/auth/calendar.readonly',
-            'https://www.googleapis.com/auth/documents.readonly'
-        ].join(' ');
 
         // 初始化 Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
         
         // 全局變數
-        let googleToken = null;
+        let googleCredential = null;
         let googleUserInfo = null;
-        let googleIdToken = null;
 
         // 紀錄除錯資訊
         function log(message) {
@@ -286,14 +208,14 @@
                 if (data) {
                     log(`收到 Firebase 數據，數據結構: ${JSON.stringify(Object.keys(data))}`);
             
-                    if (data.token) {
-                        log(`成功接收到 token: ${data.token.substring(0, 10)}...`);
-                        // 收到 token，可以使用它來存取 Google 服務
-                        googleToken = data.token;
-                        updateStatus('授權成功! 已從手機接收到 Google 授權令牌', 'success');
+                    if (data.credential) {
+                        log(`成功接收到 Google 憑證: ${data.credential.substring(0, 10)}...`);
+                        // 收到憑證，處理 Google 登入
+                        googleCredential = data.credential;
+                        updateStatus('授權成功! 已從手機接收到 Google 登入憑證', 'success');
                 
-                        // 取得用戶資訊並顯示 Google 服務
-                        fetchGoogleUserInfo(googleToken);
+                        // 處理 Google 登入
+                        handleGoogleSignIn(googleCredential);
                 
                         // 授權完成後，刪除 Firebase 中的數據 (安全性考量)
                         sessionRef.remove().then(() => {
@@ -302,7 +224,7 @@
                             log(`刪除 session 數據時出錯: ${error.message}`);
                         });
                     } else {
-                        log('收到的數據中沒有 token 欄位');
+                        log('收到的數據中沒有 credential 欄位');
                     }
                 } else {
                     log('Firebase 回調無數據');
@@ -312,45 +234,77 @@
             });
         }
         
-        // 獲取 Google 用戶資訊
-        function fetchGoogleUserInfo(token) {
-            log('開始獲取 Google 用戶資訊');
+        // 處理 Google 登入
+        function handleGoogleSignIn(credential) {
+            log('開始處理 Google 登入');
             
-            fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                headers: {
-                    'Authorization': 'Bearer ' + token
-                }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('API 請求失敗: ' + response.status);
-                }
-                return response.json();
-            })
-            .then(data => {
-                log(`獲取到用戶資訊: ${JSON.stringify(data)}`);
+            // 解析 JWT
+            const payload = parseJwt(credential);
+            if (payload) {
+                log(`成功解析 JWT，使用者資訊: ${JSON.stringify(payload)}`);
                 
                 // 保存用戶資訊
-                googleUserInfo = data;
+                googleUserInfo = {
+                    name: payload.name,
+                    email: payload.email,
+                    picture: payload.picture
+                };
                 
                 // 顯示用戶資訊
-                displayUserProfile(data);
-
-                // 顯示 Google 服務選項
-                showGoogleServices();
+                displayUserProfile(googleUserInfo);
+                
+                // 顯示歡迎訊息
+                document.getElementById('welcome-message').style.display = 'block';
                 
                 // 顯示用戶操作按鈕
                 document.getElementById('user-actions').style.display = 'block';
                 
                 // 隱藏 QR Code
                 document.getElementById('qrcode-container').style.display = 'none';
-            })
-            .catch(error => {
-                log(`獲取用戶資訊失敗: ${error.message}`);
-                updateStatus('獲取 Google 用戶資訊失敗: ' + error.message, 'error');
-            });
+                
+                // 在當前頁面自動登入 Google
+                handleGoogleAutoSignIn(credential);
+            } else {
+                log('JWT 解析失敗');
+                updateStatus('處理 Google 登入憑證失敗', 'error');
+            }
         }
-
+        
+        // 解析 JWT
+        function parseJwt(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                return JSON.parse(jsonPayload);
+            } catch (error) {
+                log(`解析 JWT 出錯: ${error.message}`);
+                return null;
+            }
+        }
+        
+        // 自動登入 Google
+        function handleGoogleAutoSignIn(credential) {
+            log('嘗試自動登入 Google');
+            
+            // 創建一個隱藏的 iframe 來完成 Google 自動登入
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            
+            // 設置 Google 登入 URL
+            iframe.src = 'https://accounts.google.com/gsi/iframe?client_id=' + googleClientId + '&credential=' + credential;
+            
+            document.body.appendChild(iframe);
+            
+            // 設置超時，確保處理完成
+            setTimeout(() => {
+                document.body.removeChild(iframe);
+                log('Google 自動登入處理完成');
+            }, 5000);
+        }
+        
         // 顯示用戶資訊
         function displayUserProfile(userData) {
             const userProfile = document.getElementById('user-profile');
@@ -367,129 +321,17 @@
             userProfile.style.display = 'block';
         }
         
-        // 顯示 Google 服務選項
-        function showGoogleServices() {
-            document.getElementById('google-services').style.display = 'block';
-            document.getElementById('service-content').style.display = 'none';
-            document.getElementById('backToServicesBtn').style.display = 'none';
-        }
-        
-        // 加載 Google 服務
-        function loadGoogleService(service) {
-            const serviceHeader = document.getElementById('service-header');
-            const serviceContainer = document.getElementById('service-content');
-            
-            // 隱藏服務列表
-            document.getElementById('google-services').style.display = 'none';
-            
-            // 顯示返回按鈕
-            document.getElementById('backToServicesBtn').style.display = 'inline-block';
-            
-            // 設置服務標題和URL
-            let serviceTitle = '';
-            let serviceUrl = '';
-            
-            switch(service) {
-                case 'mail':
-                    serviceTitle = 'Gmail';  
-                    serviceUrl = 'https://mail.google.com';
-                    break;
-                case 'drive':
-                    serviceTitle = 'Google Drive';
-                    serviceUrl = 'https://drive.google.com';
-                    break;
-                case 'calendar':
-                    serviceTitle = 'Google Calendar';
-                    serviceUrl = 'https://calendar.google.com';
-                    break;
-                case 'docs':
-                    serviceTitle = 'Google Docs';
-                    serviceUrl = 'https://docs.google.com';
-                    break;
-                default:
-                    serviceTitle = '未知服務';
-                    serviceUrl = '';
-            }
-            
-            serviceHeader.textContent = serviceTitle;
-            serviceContainer.style.display = 'block';
-            
-            // 使用新的方式打開服務
-            serviceContainer.innerHTML = `
-                <h2>${serviceTitle}</h2>
-                <p>正在準備打開${serviceTitle}...</p>
-                <iframe id="googleAuthFrame" style="display:none;"></iframe>
-            `;
-            
-            if (googleIdToken) {
-                // 使用 Google ID Token 進行 SSO
-                openServiceWithAuth(serviceUrl, serviceTitle);
-            } else {
-                // 提示需要使用 One Tap 登入
-                serviceContainer.innerHTML = `
-                    <h2>${serviceTitle}</h2>
-                    <p>請先使用 Google One Tap 登入以啟用無縫訪問</p>
-                    <button onclick="startGoogleOneTap()" class="google-service-btn">使用 Google 登入</button>
-                `;
-            }
-        }
-        
-        // 使用授權信息打開服務
-        function openServiceWithAuth(serviceUrl, serviceTitle) {
-            // 建立一個臨時隱藏的表單，提交 POST 請求
-            const form = document.createElement('form');
-            form.method = 'GET';
-            form.action = 'https://accounts.google.com/o/oauth2/v2/auth';
-            form.target = '_blank';
-            
-            const params = {
-                'client_id': googleClientId,
-                'response_type': 'token',
-                'scope': googleScopes,
-                'redirect_uri': serviceUrl,
-                'nonce': Math.random().toString(36).substring(2),
-                'prompt': 'none',
-                'login_hint': googleUserInfo.email
-            };
-            
-            for (const key in params) {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = key;
-                input.value = params[key];
-                form.appendChild(input);
-            }
-            
-            document.body.appendChild(form);
-            form.submit();
-            document.body.removeChild(form);
-            
-            log(`已嘗試使用授權信息打開 ${serviceTitle}`);
-        }
-        
-        // 顯示服務列表
-        function showServices() {
-            document.getElementById('google-services').style.display = 'block';
-            document.getElementById('service-content').style.display = 'none';
-            document.getElementById('backToServicesBtn').style.display = 'none';
-        }
-        
         // 登出功能
         function logout() {
             log('用戶登出');
             
-            // 如果使用 One Tap，也需要註銷
-            google.accounts.id.disableAutoSelect();
-            
-            // 清除本地存儲的令牌
-            googleToken = null;
+            // 清除本地存儲的憑證
+            googleCredential = null;
             googleUserInfo = null;
-            googleIdToken = null;
             
             // 重置 UI
             document.getElementById('user-profile').style.display = 'none';
-            document.getElementById('google-services').style.display = 'none';
-            document.getElementById('service-content').style.display = 'none';
+            document.getElementById('welcome-message').style.display = 'none';
             document.getElementById('user-actions').style.display = 'none';
             document.getElementById('qrcode-container').style.display = 'block';
             
@@ -498,72 +340,15 @@
             
             // 重新生成 QR Code
             initializePage();
-        }
-        
-        // 初始化 Google One Tap
-        function initializeGoogleOneTap() {
-            log('初始化 Google One Tap...');
             
-            google.accounts.id.initialize({
-                client_id: googleClientId,
-                callback: handleGoogleOneTapResponse,
-                auto_select: true,
-                cancel_on_tap_outside: false
-            });
-            
-            // 添加 One Tap 按鈕
-            const googleLoginDiv = document.createElement('div');
-            googleLoginDiv.className = 'g_id_signin';
-            googleLoginDiv.setAttribute('data-type', 'standard');
-            googleLoginDiv.setAttribute('data-shape', 'rectangular');
-            googleLoginDiv.setAttribute('data-theme', 'outline');
-            googleLoginDiv.setAttribute('data-text', 'signin_with');
-            googleLoginDiv.setAttribute('data-size', 'large');
-            googleLoginDiv.setAttribute('data-logo_alignment', 'left');
-            document.getElementById('qrcode-container').appendChild(googleLoginDiv);
-            
-            log('Google One Tap 初始化完成');
-        }
-        
-        // 啟動 Google One Tap
-        function startGoogleOneTap() {
-            google.accounts.id.prompt();
-            log('顯示 Google One Tap 登入提示');
-        }
-        
-        // 處理 Google One Tap 回應
-        function handleGoogleOneTapResponse(response) {
-            log('收到 Google One Tap 回應');
-            
-            if (response && response.credential) {
-                // 解碼 JWT 以獲取用戶資訊
-                const base64Url = response.credential.split('.')[1];
-                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                }).join(''));
-                
-                const payload = JSON.parse(jsonPayload);
-                log(`Google One Tap 登入成功`);
-                
-                // 保存令牌和用戶資訊
-                googleIdToken = response.credential;
-                googleUserInfo = payload;
-                
-                // 顯示用戶資訊
-                displayUserProfile(payload);
-                
-                // 顯示 Google 服務選項
-                showGoogleServices();
-                
-                // 顯示用戶操作按鈕
-                document.getElementById('user-actions').style.display = 'block';
-                
-                // 隱藏 QR Code
-                document.getElementById('qrcode-container').style.display = 'none';
-                
-                updateStatus('Google 登入成功!', 'success');
-            }
+            // 嘗試登出 Google
+            const logoutUrl = 'https://accounts.google.com/logout';
+            const logoutWindow = window.open(logoutUrl, '_blank', 'width=500,height=500');
+            setTimeout(() => {
+                if (logoutWindow) {
+                    logoutWindow.close();
+                }
+            }, 2000);
         }
 
         // 初始化頁面
@@ -581,17 +366,6 @@
             generateQRCode(qrData);
             updateStatus('請使用手機掃描 QR Code 以進行 Google 授權', 'waiting');
             listenForAuthToken(sessionId);
-            
-            // 初始化 Google One Tap
-            initializeGoogleOneTap();
-            
-            // 顯示 Google One Tap 按鈕
-            setTimeout(() => {
-                const signInDiv = document.querySelector('.g_id_signin');
-                if (signInDiv) {
-                    signInDiv.style.display = 'block';
-                }
-            }, 1000);
         }
         
         // 頁面載入
@@ -624,9 +398,6 @@
                 }
             });
         };
-        
-        // 全局函數，供 Google One Tap 回調使用
-        window.handleGoogleOneTapResponse = handleGoogleOneTapResponse;
     </script>
 </body>
 </html>
