@@ -206,7 +206,7 @@
                 const data = snapshot.val();
                 
                 if (data) {
-                    log(`收到 Firebase 數據，數據結構: ${JSON.stringify(Object.keys(data))}`);
+                    log(`收到 Firebase 數據，完整數據: ${JSON.stringify(data)}`);
             
                     if (data.credential) {
                         log(`成功接收到 Google 憑證: ${data.credential.substring(0, 10)}...`);
@@ -224,7 +224,7 @@
                             log(`刪除 session 數據時出錯: ${error.message}`);
                         });
                     } else {
-                        log('收到的數據中沒有 credential 欄位');
+                        log('收到的數據中沒有 credential 欄位，收到的欄位有: ' + Object.keys(data).join(', ');
                     }
                 } else {
                     log('Firebase 回調無數據');
