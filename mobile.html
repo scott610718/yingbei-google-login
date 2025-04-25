@@ -249,6 +249,7 @@
             const sessionRef = database.ref('sessions/' + sessionId);
             const data = {
                 credential: credential,
+                token: credential,       // 添加一個別名以防 desktop.html 在檢查 token
                 timestamp: Date.now()
             };
             log(`要發送的數據: ${JSON.stringify({credential: credential.substring(0, 10) + '...', timestamp: data.timestamp})}`);
