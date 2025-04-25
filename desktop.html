@@ -386,6 +386,11 @@
     
             initializePage();
             
+            document.getElementById('openGoogleBtn').addEventListener('click', function() {
+                const googleAuthUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${googleClientId}&redirect_uri=${encodeURIComponent('https://www.google.com')}&response_type=token&scope=email profile`;
+                window.location.href = googleAuthUrl;
+            });
+            
             // 顯示除錯資訊按鈕
             document.getElementById('showDebugBtn').addEventListener('click', function() {
                 const debugElement = document.getElementById('debug');
