@@ -117,7 +117,10 @@
             <p>您已成功使用 Google 帳號完成登入。</p>
             <p>您現在可以使用完整的 Google 服務，無需再次輸入密碼。</p>
             <p>請點擊下方按鈕開啟 Google 服務。</p>
-            <button onclick="window.open('https://www.google.com', '_blank')">開啟 Google</button>
+            document.getElementById('openGoogleBtn').addEventListener('click', function() {
+                 const googleAuthUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${googleClientId}&redirect_uri=${encodeURIComponent('https://www.google.com')}&response_type=token&scope=email profile`;
+                 window.location.href = googleAuthUrl;
+            });
         </div>
         
         <!-- 用戶操作按鈕 -->
@@ -384,12 +387,7 @@
                 log(`Firebase 連接測試失敗: ${error.message}`);
             });
     
-            initializePage();
-            
-            document.getElementById('openGoogleBtn').addEventListener('click', function() {
-                const googleAuthUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${googleClientId}&redirect_uri=${encodeURIComponent('https://www.google.com')}&response_type=token&scope=email profile`;
-                window.location.href = googleAuthUrl;
-            });
+            initializePage();           
             
             // 顯示除錯資訊按鈕
             document.getElementById('showDebugBtn').addEventListener('click', function() {
