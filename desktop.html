@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>電腦端 - Google 整合應用</title>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -100,8 +100,8 @@
         </div>
         
         <!-- 初始畫面：QR Code 掃描區 -->
-        <div id="qrcode-container">
-            <div id="qrcode"></div>
+        <div id="qrcode-container" style="display: block; margin: 20px auto; width: 256px; height: 256px;">
+            <div id="qrcode" style="background-color: #f5f5f5; padding: 10px;"></div>
         </div>
         
         <!-- 用戶登入成功後顯示資訊 -->
@@ -170,12 +170,30 @@
 
         // 生成 QR Code
         function generateQRCode(text) {
-            const typeNumber = 0;
-            const errorCorrectionLevel = 'L';
-            const qr = qrcode(typeNumber, errorCorrectionLevel);
-            qr.addData(text);
-            qr.make();
-            document.getElementById('qrcode').innerHTML = qr.createImgTag(10);
+            try {
+                // 清除舊的 QR Code
+                document.getElementById('qrcode').innerHTML = '';
+        
+                const typeNumber = 4; // 增加 type number
+                const errorCorrectionLevel = 'L';
+                const qr = qrcode(typeNumber, errorCorrectionLevel);
+                qr.addData(text);
+                qr.make();
+        
+                // 生成 QR code
+                const qrCodeImg = qr.createImgTag(5);
+                document.getElementById('qrcode').innerHTML = qrCodeImg;
+        
+                // 記錄日誌
+                log(`QR Code 生成成功，內容: ${text.substring(0, 20)}...`);
+            } catch (error) {
+                log(`生成 QR Code 時出錯: ${error.message}`);
+                // 嘗試使用基本方法
+                document.getElementById('qrcode').innerHTML = `<div style="padding: 20px; background: #f5f5f5; text-align: center;">
+                    QR Code 生成失敗，請嘗試刷新頁面。<br>
+                    錯誤: ${error.message}
+                </div>`;
+            }
         }
 
         // 更新狀態消息
@@ -354,6 +372,7 @@
         // 初始化頁面
         function initializePage() {
             const sessionId = generateSessionId();
+            log(`生成了新的 sessionId: ${sessionId}`);
             const qrData = JSON.stringify({
                 sessionId: sessionId,
                 action: 'googleAuth'
@@ -363,28 +382,47 @@
             localStorage.setItem('currentSessionId', sessionId);
             
             log(`初始化頁面，產生 sessionId: ${sessionId}`);
+            log(`準備生成的 QR 數據: ${qrData}`);
             generateQRCode(qrData);
+            // 儲存 sessionId 到本地存儲
+            localStorage.setItem('currentSessionId', sessionId);
             updateStatus('請使用手機掃描 QR Code 以進行 Google 授權', 'waiting');
             listenForAuthToken(sessionId);
+            } catch (error) {
+                log(`初始化頁面時出錯: ${error.message}`);
+                document.getElementById('statusMessage').textContent = '初始化失敗，請刷新頁面';
+            }
         }
         
         // 頁面載入
         window.onload = function() {
-            // 測試 Firebase 連接
-            log('測試 Firebase 連接...');
-            const testRef = database.ref('test');
-            testRef.set({
-                timestamp: Date.now(),
-                message: 'Test connection'
-            })
-            .then(() => {
-                log('Firebase 連接測試成功');
-            })
-            .catch(error => {
-                log(`Firebase 連接測試失敗: ${error.message}`);
-            });
+          // 先進行日誌輸出，確認 JavaScript 正在運行
+          log('頁面加載完成，開始初始化...');
     
-            initializePage();
+          try {
+              // 檢查 qrcode 函數是否存在
+              if (typeof qrcode !== 'function') {
+                  log('錯誤：qrcode 函數未定義，請確認庫已正確加載');
+                  document.getElementById('statusMessage').textContent = 'QR Code 庫加載失敗，請刷新頁面';
+                  return;
+              }
+        
+              // 初始化頁面，包含生成 QR Code
+              initializePage();            // 測試 Firebase 連接
+                  log('測試 Firebase 連接...');
+                  const testRef = database.ref('test');
+                  testRef.set({
+                      timestamp: Date.now(),
+                      message: 'Test connection'
+                  })
+                  .then(() => {
+                      log('Firebase 連接測試成功');
+                  })
+                  .catch(error => {
+                      log(`Firebase 連接測試失敗: ${error.message}`);
+                  });
+    
+                  initializePage();
             
             // 顯示除錯資訊按鈕
             document.getElementById('showDebugBtn').addEventListener('click', function() {
