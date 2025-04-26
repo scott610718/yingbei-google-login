@@ -352,43 +352,31 @@
         }
 
         // 開啟已登入的 Google
-       function openGoogleWithAuth() {
-           if (googleCredential) {
-               log('開啟已登入的 Google 頁面');
+        function openGoogleWithAuth() {
+            if (googleCredential) {
+                log('開啟已登入的 Google 頁面');
         
-               // 創建一個表單來傳遞憑證
-               const form = document.createElement('form');
-               form.method = 'POST';
-               form.action = 'https://accounts.google.com/signin/continue';
-               form.target = '_blank';
+                // 創建一個隱藏的 iframe 來設置 Cookie        
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = 'https://accounts.google.com/gsi/iframe?client_id=' + googleClientId + '&credential=' + googleCredential;
         
-               // 添加必要的參數
-               const params = {
-                   'continue': 'https://www.google.com/',
-                   'hl': 'zh-TW',
-                   'flowName': 'GlifWebSignIn',
-                   'flowEntry': 'ServiceLogin',
-                   'idToken': googleCredential
-               };
+                document.body.appendChild(iframe);
         
-               // 為每個參數創建隱藏的輸入字段
-               for (const key in params) {
-                   const input = document.createElement('input');
-                   input.type = 'hidden';
-                   input.name = key;
-                   input.value = params[key];
-                   form.appendChild(input);
-               }
-        
-               // 將表單添加到文檔中，提交然後移除它
-               document.body.appendChild(form);
-               form.submit();
-               document.body.removeChild(form);
-           } else {
-               log('沒有 Google 憑證，無法開啟已登入的 Google');
-               window.open('https://www.google.com', '_blank');
-           }
-       }
+                // 稍等一下，讓 Cookie 被設置
+                setTimeout(() => {
+                    document.body.removeChild(iframe);
+            
+                    // 在同一瀏覽器會話中打開 Google
+                    window.open('https://www.google.com', '_blank');
+            
+                    log('已嘗試在新標籤中開啟已登入的 Google');
+                }, 1000);
+            } else {
+                log('沒有 Google 憑證，無法開啟已登入的 Google');
+                window.open('https://www.google.com', '_blank');
+            }
+        }
         
         // 初始化頁面
         function initializePage() {
