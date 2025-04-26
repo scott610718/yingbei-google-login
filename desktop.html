@@ -321,32 +321,28 @@
             userProfile.style.display = 'block';
         }
         
-        // 開啟 Google 並傳遞憑證
+        // 修正後的開啟Google函數 - 簡單直接的方法
         function openGoogleWithCredential() {
-            if (!googleCredential) {
-                log('嘗試開啟Google但沒有有效憑證');
-                alert('沒有有效的Google憑證，請重新登入');
+            if (!googleCredential || !googleUserInfo || !googleUserInfo.email) {
+                log('嘗試開啟Google但沒有有效憑證或用戶信息');
+                alert('沒有有效的Google憑證或用戶信息，請重新登入');
                 return;
             }
     
-            log('使用憑證開啟Google...');
+            log('開啟Google並附加用戶標識...');
     
-            // 創建一個隱藏的 iframe 執行 Google 自動登入
-            const iframe = document.createElement('iframe');
-            iframe.id = 'google-auth-iframe';
-            iframe.style.display = 'none';
-            iframe.src = 'https://accounts.google.com/gsi/iframe?client_id=' + googleClientId + '&credential=' + googleCredential;
-            document.body.appendChild(iframe);
+            // 使用email參數直接開啟Google
+            const googleUrl = 'https://www.google.com/';
     
-            // 延遲後開啟 Google 並移除 iframe
-            setTimeout(() => {
-                // 開啟 Google 首頁，此時瀏覽器應該已有 Google 的 cookies
-                window.open('https://www.google.com/?authuser=' + encodeURIComponent(googleUserInfo.email), '_blank');
-        
-                // 移除臨時 iframe
-                document.body.removeChild(iframe);
-                log('已嘗試開啟已登入的Google頁面');
-            }, 1000); // 給予 1 秒讓 iframe 完成授權流程
+            // 根據是否有email決定是否附加參數
+            const finalUrl = googleUserInfo.email ? 
+                googleUrl + '?authuser=' + encodeURIComponent(googleUserInfo.email) : 
+                googleUrl;
+    
+            // 開啟新窗口
+            window.open(finalUrl, '_blank');
+    
+            log('已開啟Google頁面，附加用戶參數: ' + googleUserInfo.email);
         }
         
         // 登出功能
