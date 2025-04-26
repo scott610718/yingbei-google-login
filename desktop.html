@@ -152,7 +152,6 @@
         // 全局變數
         let googleCredential = null;
         let googleUserInfo = null;
-        let isNewLogin = false; // 用來跟踪是否是新的登入
 
         // 紀錄除錯資訊
         function log(message) {
@@ -213,7 +212,6 @@
                         log(`成功接收到 Google 憑證: ${data.credential.substring(0, 10)}...`);
                         // 收到憑證，處理 Google 登入
                         googleCredential = data.credential;
-                        isNewLogin = true; // 標記這是一個新的登入
                         updateStatus('授權成功! 已從手機接收到 Google 登入憑證', 'success');
                 
                         // 處理 Google 登入
@@ -326,41 +324,123 @@
             userProfile.style.display = 'block';
         }
         
-        // 創建並提交表單以保持登入狀態並開啟 Google
-        function openGoogleWithAuth(credential) {
-            log('開始開啟 Google 並保持登入狀態');
+        // 打開 Google 並傳遞身分驗證
+        function openGoogleWithAuth() {
+            log('嘗試打開已驗證的 Google 頁面');
             
-            // 創建一個隱藏的表單
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = 'https://accounts.google.com/ServiceLoginAuth';
-            form.target = '_blank';
-            form.style.display = 'none';
+            // 檢查是否有憑證
+            const credential = localStorage.getItem('googleCredential');
+            if (!credential) {
+                log('找不到 Google 憑證');
+                alert('無法開啟 Google：找不到登入憑證');
+                return;
+            }
             
-            // 添加 Google 憑證到表單
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'id_token';
-            input.value = credential;
-            form.appendChild(input);
+            // 創建中繼頁面來處理身分驗證
+            const relay = window.open('', '_blank');
             
-            // 添加其他必要的參數
-            const continueInput = document.createElement('input');
-            continueInput.type = 'hidden';
-            continueInput.name = 'continue';
-            continueInput.value = 'https://www.google.com/';
-            form.appendChild(continueInput);
+            if (!relay) {
+                log('打開新窗口失敗，可能被彈窗攔截器阻擋');
+                alert('無法開啟新視窗，請允許彈出窗口');
+                return;
+            }
             
-            // 添加表單到文檔並提交
-            document.body.appendChild(form);
-            form.submit();
+            // 在中繼頁面寫入處理憑證的腳本
+            relay.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Google 登入中...</title>
+                    <script src="https://accounts.google.com/gsi/client" async defer></script>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            justify-content: center;
+                            height: 100vh;
+                            margin: 0;
+                            background-color: #f8f9fa;
+                        }
+                        .loader {
+                            border: 5px solid #f3f3f3;
+                            border-top: 5px solid #4285f4;
+                            border-radius: 50%;
+                            width: 50px;
+                            height: 50px;
+                            animation: spin 1s linear infinite;
+                            margin-bottom: 20px;
+                        }
+                        @keyframes spin {
+                            0% { transform: rotate(0deg); }
+                            100% { transform: rotate(360deg); }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="loader"></div>
+                    <h2>正在登入 Google，請稍候...</h2>
+                    
+                    <script>
+                        // 接收憑證
+                        const credential = "${credential}";
+                        
+                        // 在 document.cookie 中設置憑證
+                        document.cookie = "g_csrf_token=duplicate";
+                        
+                        // 完成登入後重定向到 Google
+                        function completeAuth() {
+                            setTimeout(function() {
+                                // 建立一個隱藏的表單來提交憑證
+                                const form = document.createElement('form');
+                                form.method = 'POST';
+                                form.action = 'https://accounts.google.com/signin/oauth/consent';
+                                form.style.display = 'none';
+                                
+                                // 添加必要的欄位
+                                const credentialField = document.createElement('input');
+                                credentialField.type = 'hidden';
+                                credentialField.name = 'credential';
+                                credentialField.value = credential;
+                                form.appendChild(credentialField);
+                                
+                                // 添加 g_csrf_token
+                                const csrfField = document.createElement('input');
+                                csrfField.type = 'hidden';
+                                csrfField.name = 'g_csrf_token';
+                                csrfField.value = 'duplicate';
+                                form.appendChild(csrfField);
+                                
+                                document.body.appendChild(form);
+                                
+                                // 提交表單
+                                setTimeout(function() {
+                                    // 直接前往 Google
+                                    window.location.href = 'https://www.google.com/?gws_rd=ssl';
+                                }, 500);
+                            }, 1000);
+                        }
+                        
+                        // 初始化 Google 客戶端
+                        window.onload = function() {
+                            // 嘗試使用現有憑證進行 Google 驗證
+                            const iframe = document.createElement('iframe');
+                            iframe.style.display = 'none';
+                            iframe.src = 'https://accounts.google.com/gsi/iframe?client_id=${googleClientId}&credential=' + credential;
+                            document.body.appendChild(iframe);
+                            
+                            // 設置超時確保處理完成
+                            setTimeout(function() {
+                                completeAuth();
+                            }, 2000);
+                        };
+                    </script>
+                </body>
+                </html>
+            `);
             
-            // 提交後移除表單
-            setTimeout(() => {
-                document.body.removeChild(form);
-            }, 1000);
-            
-            log('已提交驗證並開啟 Google');
+            log('已打開中繼頁面並注入驗證腳本');
         }
         
         // 登出功能
@@ -411,102 +491,6 @@
             listenForAuthToken(sessionId);
         }
         
-        // 使用存儲的憑證開啟 Google
-        function openGoogleWithStoredCredential() {
-            log('開始使用存儲的憑證開啟 Google');
-            
-            const credential = localStorage.getItem('googleCredential');
-            if (credential) {
-                log('已找到存儲的 Google 憑證');
-                
-                // 創建一個新視窗
-                const authWindow = window.open('about:blank', '_blank');
-                
-                setTimeout(() => {
-                    if (authWindow) {
-                        // 在新視窗中注入登入腳本
-                        authWindow.document.write(`
-                            <!DOCTYPE html>
-                            <html>
-                            <head>
-                                <title>Google 登入中...</title>
-                                <script src="https://accounts.google.com/gsi/client" async defer></script>
-                            </head>
-                            <body>
-                                <div style="display:flex;justify-content:center;align-items:center;height:100vh;">
-                                    <div style="text-align:center;">
-                                        <h2>正在登入 Google...</h2>
-                                        <p>請稍候，頁面將在幾秒內自動跳轉</p>
-                                    </div>
-                                </div>
-                                <script>
-                                    // 接收父窗口傳遞的憑證
-                                    const credential = "${credential}";
-                                    
-                                    // 模擬 Google 登入
-                                    function simulateGoogleLogin() {
-                                        // 使用 fetch API 調用 Google 登入
-                                        fetch('https://accounts.google.com/v3/signin/identifier', {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/x-www-form-urlencoded'
-                                            },
-                                            body: 'id_token=' + encodeURIComponent(credential),
-                                            credentials: 'include'
-                                        })
-                                        .then(response => {
-                                            // 跳轉到 Google 首頁
-                                            window.location.href = "https://www.google.com/";
-                                        })
-                                        .catch(error => {
-                                            // 出錯時也跳轉到 Google，讓 Google 自己處理
-                                            window.location.href = "https://www.google.com/";
-                                        });
-                                    }
-                                    
-                                    // 當 Google 客戶端庫加載完成時執行
-                                    window.onload = function() {
-                                        // 先嘗試使用客戶端庫
-                                        if (window.google && window.google.accounts && window.google.accounts.id) {
-                                            window.google.accounts.id.initialize({
-                                                client_id: "${googleClientId}",
-                                                callback: function(resp) {
-                                                    window.location.href = "https://www.google.com/";
-                                                }
-                                            });
-                                            
-                                            try {
-                                                window.google.accounts.id.storeCredential(credential);
-                                                // 直接打開 Google
-                                                window.location.href = "https://www.google.com/";
-                                            } catch (e) {
-                                                // 如果 storeCredential 失敗，嘗試其他方法
-                                                simulateGoogleLogin();
-                                            }
-                                        } else {
-                                            // 如果 Google 客戶端庫無法使用，嘗試其他方法
-                                            simulateGoogleLogin();
-                                        }
-                                        
-                                        // 5 秒後無論如何都跳轉
-                                        setTimeout(function() {
-                                            window.location.href = "https://www.google.com/";
-                                        }, 3000);
-                                    };
-                                </script>
-                            </body>
-                            </html>
-                        `);
-                    }
-                }, 100);
-            } else {
-                log('沒有找到存儲的 Google 憑證');
-                
-                // 如果沒有存儲的憑證，直接開啟 Google
-                window.open('https://www.google.com/', '_blank');
-            }
-        }
-        
         // 頁面載入
         window.onload = function() {
             // 測試 Firebase 連接
@@ -523,8 +507,12 @@
                 log(`Firebase 連接測試失敗: ${error.message}`);
             });
     
-            // 初始化頁面
             initializePage();
+            
+            // 設置開啟 Google 按鈕事件
+            document.getElementById('openGoogleBtn').addEventListener('click', function() {
+                openGoogleWithAuth();
+            });
             
             // 顯示除錯資訊按鈕
             document.getElementById('showDebugBtn').addEventListener('click', function() {
@@ -538,33 +526,11 @@
                 }
             });
             
-            // 開啟 Google 按鈕事件監聽
-            document.getElementById('openGoogleBtn').addEventListener('click', function() {
-                openGoogleWithStoredCredential();
-            });
-            
-            // 檢查並恢復先前登入的狀態 - 僅恢復UI狀態，不自動開啟Google登入頁面
-            const storedCredential = localStorage.getItem('googleCredential');
-            if (storedCredential) {
-                log('檢測到先前的憑證，僅恢復UI狀態...');
-                // 使用解析JWT來獲取用戶信息
-                const payload = parseJwt(storedCredential);
-                if (payload) {
-                    // 恢復全局變數
-                    googleCredential = storedCredential;
-                    googleUserInfo = {
-                        name: payload.name,
-                        email: payload.email,
-                        picture: payload.picture
-                    };
-                    
-                    // 恢復UI
-                    displayUserProfile(googleUserInfo);
-                    document.getElementById('welcome-message').style.display = 'block';
-                    document.getElementById('user-actions').style.display = 'block';
-                    document.getElementById('qrcode-container').style.display = 'none';
-                    updateStatus('已恢復先前的登入狀態', 'success');
-                }
+            // 檢查是否已有憑證，如果有則自動顯示已登入狀態
+            const savedCredential = localStorage.getItem('googleCredential');
+            if (savedCredential) {
+                log('從 localStorage 找到已保存的憑證，嘗試恢復登入狀態');
+                handleGoogleSignIn(savedCredential);
             }
         };
     </script>
