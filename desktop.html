@@ -152,6 +152,7 @@
         // 全局變數
         let googleCredential = null;
         let googleUserInfo = null;
+        let isNewLogin = false; // 用來跟踪是否是新的登入
 
         // 紀錄除錯資訊
         function log(message) {
@@ -212,6 +213,7 @@
                         log(`成功接收到 Google 憑證: ${data.credential.substring(0, 10)}...`);
                         // 收到憑證，處理 Google 登入
                         googleCredential = data.credential;
+                        isNewLogin = true; // 標記這是一個新的登入
                         updateStatus('授權成功! 已從手機接收到 Google 登入憑證', 'success');
                 
                         // 處理 Google 登入
@@ -250,7 +252,7 @@
                     picture: payload.picture
                 };
                 
-                // 保存憑證到 localStorage (添加這行)
+                // 保存憑證到 localStorage
                 localStorage.setItem('googleCredential', credential);
                 
                 // 顯示用戶資訊
@@ -417,7 +419,7 @@
             if (credential) {
                 log('已找到存儲的 Google 憑證');
                 
-                // 方法 1: 使用 Google ID 庫直接開啟 Google
+                // 創建一個新視窗
                 const authWindow = window.open('about:blank', '_blank');
                 
                 setTimeout(() => {
@@ -521,6 +523,7 @@
                 log(`Firebase 連接測試失敗: ${error.message}`);
             });
     
+            // 初始化頁面
             initializePage();
             
             // 顯示除錯資訊按鈕
@@ -540,11 +543,28 @@
                 openGoogleWithStoredCredential();
             });
             
-            // 檢查並恢復先前登入的狀態
+            // 檢查並恢復先前登入的狀態 - 僅恢復UI狀態，不自動開啟Google登入頁面
             const storedCredential = localStorage.getItem('googleCredential');
             if (storedCredential) {
-                log('檢測到先前的登入狀態，嘗試恢復...');
-                handleGoogleSignIn(storedCredential);
+                log('檢測到先前的憑證，僅恢復UI狀態...');
+                // 使用解析JWT來獲取用戶信息
+                const payload = parseJwt(storedCredential);
+                if (payload) {
+                    // 恢復全局變數
+                    googleCredential = storedCredential;
+                    googleUserInfo = {
+                        name: payload.name,
+                        email: payload.email,
+                        picture: payload.picture
+                    };
+                    
+                    // 恢復UI
+                    displayUserProfile(googleUserInfo);
+                    document.getElementById('welcome-message').style.display = 'block';
+                    document.getElementById('user-actions').style.display = 'block';
+                    document.getElementById('qrcode-container').style.display = 'none';
+                    updateStatus('已恢復先前的登入狀態', 'success');
+                }
             }
         };
     </script>
