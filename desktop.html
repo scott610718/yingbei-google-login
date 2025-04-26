@@ -8,6 +8,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <meta name="google-signin-client_id" content="130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -117,12 +119,12 @@
             <p>您已成功使用 Google 帳號完成登入。</p>
             <p>您現在可以使用完整的 Google 服務，無需再次輸入密碼。</p>
             <p>請點擊下方按鈕開啟 Google 服務。</p>
-            <button onclick="window.open('https://www.google.com', '_blank')">開啟 Google</button>
+            <button id="openGoogleBtn">開啟 Google</button>
         </div>
         
         <!-- 用戶操作按鈕 -->
         <div id="user-actions" class="user-actions" style="display:none;">
-            <button id="logoutBtn" onclick="logout()">登出</button>
+            <button id="logoutBtn">登出</button>
         </div>
         
         <div id="debug"></div>
@@ -152,6 +154,7 @@
         // 全局變數
         let googleCredential = null;
         let googleUserInfo = null;
+        let googleAuthInstance = null;
 
         // 紀錄除錯資訊
         function log(message) {
@@ -289,12 +292,15 @@
         function handleGoogleAutoSignIn(credential) {
             log('嘗試自動登入 Google');
             
+            // 儲存憑證到本地存儲，以便其他頁面使用
+            localStorage.setItem('googleCredential', credential);
+            
             // 創建一個隱藏的 iframe 來完成 Google 自動登入
             const iframe = document.createElement('iframe');
             iframe.style.display = 'none';
             
-            // 設置 Google 登入 URL
-            iframe.src = 'https://accounts.google.com/gsi/iframe?client_id=' + googleClientId + '&credential=' + credential;
+            // 設置 Google 登入 URL，使用更現代的方法處理登入
+            iframe.src = `https://accounts.google.com/gsi/iframe?client_id=${googleClientId}&credential=${credential}`;
             
             document.body.appendChild(iframe);
             
@@ -302,7 +308,90 @@
             setTimeout(() => {
                 document.body.removeChild(iframe);
                 log('Google 自動登入處理完成');
-            }, 5000);
+                
+                // 告知用戶登入已完成
+                updateStatus('Google 帳戶已成功登入，現在可以開啟 Google 服務', 'success');
+                
+                // 初始化 Google Auth API
+                initGoogleAuth();
+            }, 3000);
+        }
+        
+        // 初始化 Google Auth API
+        function initGoogleAuth() {
+            if (typeof gapi !== 'undefined' && gapi.auth2) {
+                gapi.load('auth2', function() {
+                    gapi.auth2.init({
+                        client_id: googleClientId
+                    }).then(function(authInstance) {
+                        googleAuthInstance = authInstance;
+                        log('Google Auth2 API 初始化完成');
+                    }).catch(function(error) {
+                        log('Google Auth2 API 初始化失敗: ' + error);
+                    });
+                });
+            } else {
+                log('gapi 未定義或 auth2 不可用，將在稍後嘗試初始化');
+                setTimeout(initGoogleAuth, 1000);
+            }
+        }
+        
+        // 使用憑證打開 Google
+        function openGoogleWithCredential() {
+            if (googleCredential) {
+                log('使用憑證打開 Google');
+                
+                // 方法一：使用表單提交方式
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = 'https://accounts.google.com/ServiceLogin';
+                form.target = '_blank';
+                
+                // 添加隱藏字段存儲憑證
+                const idTokenField = document.createElement('input');
+                idTokenField.type = 'hidden';
+                idTokenField.name = 'credential';
+                idTokenField.value = googleCredential;
+                form.appendChild(idTokenField);
+                
+                // 添加其他必要參數
+                const continueField = document.createElement('input');
+                continueField.type = 'hidden';
+                continueField.name = 'continue';
+                continueField.value = 'https://www.google.com/';
+                form.appendChild(continueField);
+                
+                // 將表單添加到文檔中並提交
+                document.body.appendChild(form);
+                form.submit();
+                
+                // 從文檔中移除表單
+                setTimeout(() => {
+                    document.body.removeChild(form);
+                }, 100);
+                
+                // 備用方法：如果表單提交方式不起作用，可以嘗試使用 Auth2 API
+                if (googleAuthInstance && googleAuthInstance.isSignedIn && googleAuthInstance.isSignedIn.get()) {
+                    log('用戶已通過 Auth2 API 登入，直接打開 Google');
+                    window.open('https://www.google.com/', '_blank');
+                } else if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+                    log('使用 google.accounts.id 嘗試登入');
+                    // 使用最新的 Google Identity Services
+                    const newWindow = window.open('', '_blank');
+                    google.accounts.id.initialize({
+                        client_id: googleClientId,
+                        callback: (response) => {
+                            if (response.credential) {
+                                newWindow.location.href = 'https://www.google.com/';
+                            }
+                        }
+                    });
+                    google.accounts.id.prompt();
+                }
+            } else {
+                log('沒有可用的 Google 憑證，使用普通方式打開 Google');
+                window.open('https://www.google.com', '_blank');
+            }
         }
         
         // 顯示用戶資訊
@@ -328,6 +417,14 @@
             // 清除本地存儲的憑證
             googleCredential = null;
             googleUserInfo = null;
+            localStorage.removeItem('googleCredential');
+            
+            // 如果有 Google Auth2 實例，使用它登出
+            if (googleAuthInstance) {
+                googleAuthInstance.signOut().then(function() {
+                    log('已使用 Auth2 API 登出 Google');
+                });
+            }
             
             // 重置 UI
             document.getElementById('user-profile').style.display = 'none';
@@ -397,6 +494,22 @@
                     this.textContent = '顯示除錯資訊';
                 }
             });
+            
+            // 綁定開啟 Google 按鈕點擊事件
+            document.getElementById('openGoogleBtn').addEventListener('click', openGoogleWithCredential);
+            
+            // 綁定登出按鈕點擊事件
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            
+            // 檢查本地存儲中是否有憑證
+            const savedCredential = localStorage.getItem('googleCredential');
+            if (savedCredential) {
+                log('從本地存儲恢復 Google 憑證');
+                googleCredential = savedCredential;
+                
+                // 嘗試使用保存的憑證進行登入
+                handleGoogleSignIn(savedCredential);
+            }
         };
     </script>
 </body>
