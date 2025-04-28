@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>營北國中Google登入 - 電腦端</title>
+    <title>電腦端 - Google 整合應用</title>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
@@ -13,96 +13,45 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 100%;
-            margin: 0;
-            padding: 10px;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
             text-align: center;
-            background: #0a1128;
-            background-image: url('https://images.unsplash.com/photo-1475274047050-1d0c0975c63e?q=80&w=1440&auto=format&fit=crop');
-            background-size: cover;
-            color: white;
-            overflow: hidden;
-            position: relative;
-            height: 100vh;
         }
-        .star {
-            position: absolute;
-            width: 2px;
-            height: 2px;
-            background: white;
-            border-radius: 50%;
-            animation: shooting-star 5s linear infinite;
-        }
-        @keyframes shooting-star {
-            0% {
-                transform: translateX(-100px) translateY(100px);
-                opacity: 0;
-            }
-            10% {
-                opacity: 1;
-            }
-            70% {
-                opacity: 1;
-            }
-            100% {
-                transform: translateX(calc(100vw + 100px)) translateY(-100px);
-                opacity: 0;
-            }
-        }        
         .container {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 95vh;
-            background-color: rgba(0, 0, 0, 0.6);
-            border-radius: 10px;
-            padding: 10px;
-            max-height: 95vh;
-            overflow-y: auto;
-            width: 90%;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        .header {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 15px;
-        }
-        .logo {
-            height: 50px;
-            margin-left: 10px;
+            height: 80vh;
         }
         #qrcode {
-            margin: 15px 0;
+            margin: 20px 0;
         }
         .status {
-            margin: 15px 0;
-            padding: 8px;
+            margin: 20px 0;
+            padding: 10px;
             border-radius: 4px;
-            width: 90%;
         }
         .waiting {
-            background-color: rgba(240, 240, 240, 0.7);
-            color: #333;
+            background-color: #f0f0f0;
         }
         .success {
-            background-color: rgba(212, 237, 218, 0.7);
+            background-color: #d4edda;
             color: #155724;
         }
         .error {
-            background-color: rgba(248, 215, 218, 0.7);
+            background-color: #f8d7da;
             color: #721c24;
         }
         button {
-            padding: 8px 16px;
+            padding: 10px 20px;
             background-color: #4285f4;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px;
             margin: 5px;
         }
         button:disabled {
@@ -110,59 +59,44 @@
             cursor: not-allowed;
         }
         #debug {
-            margin-top: 15px;
-            padding: 8px;
-            background-color: rgba(248, 249, 250, 0.7);
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
             border: 1px solid #ddd;
             text-align: left;
             font-family: monospace;
-            height: 80px;
+            max-height: 150px;
             overflow-y: auto;
             display: none;
-            color: #333;
-            width: 90%;
         }
         .user-profile {
             display: none;
-            margin: 15px 0;
+            margin: 20px 0;
             text-align: center;
         }
         .profile-image {
-            width: 60px;
-            height: 60px;
+            width: 80px;
+            height: 80px;
             border-radius: 50%;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
         .user-actions {
-            margin-top: 15px;
+            margin-top: 20px;
         }
         .welcome-message {
-            margin-top: 15px;
-            padding: 15px;
-            background-color: rgba(248, 249, 250, 0.7);
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f8f9fa;
             border-radius: 8px;
-            max-width: 90%;
+            max-width: 600px;
             text-align: center;
             display: none;
-            color: #333;
         }
-        h1 {
-            font-size: 20px;
-            margin: 10px 0;
-        }
-        h2 {
-            font-size: 18px;
-            margin: 8px 0;
-        }        
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- 修改標題區域，添加logo -->
-        <div class="header">
-            <img src="https://scott610718.github.io/yingbei-google-login/logo.png" alt="Ying Pei Logo" class="logo">
-            <h1>營北國中Google登入 - 電腦端</h1>
-        </div>
+        <h1>電腦端 - Google 整合應用</h1>
         <div id="statusContainer" class="status waiting">
             <p id="statusMessage">請使用手機掃描下方 QR Code</p>
         </div>
@@ -194,69 +128,10 @@
         </div>
         
         <div id="debug"></div>
-        <button id="showDebugBtn" style="margin-top: 20px; background-color: #6c757d;">顯示除錯資訊</button>     
+        <button id="showDebugBtn" style="margin-top: 20px; background-color: #6c757d;">顯示除錯資訊</button>
     </div>
 
     <script>
-        // 頁面載入時檢查 IP
-        document.addEventListener('DOMContentLoaded', checkIPAccess);        
-        // 在頁面加載時創建星星
-        window.addEventListener('DOMContentLoaded', createStars);
-
-        // IP 檢查函數
-        function checkIPAccess() {
-            // 使用 API 獲取用戶 IP
-            fetch('https://api.ipify.org?format=json')
-                .then(response => response.json())
-                .then(data => {
-                    const userIP = data.ip;
-                    console.log('用戶 IP:', userIP);
-            
-                    // 檢查 IP 是否在允許範圍內
-                    if (!userIP.startsWith('163.22.185.')) {
-                        // 顯示權限拒絕訊息
-                        document.body.innerHTML = `
-                            <div style="text-align: center; margin-top: 100px; color: white; background-color: rgba(0,0,0,0.7); padding: 50px; max-width: 600px; margin: 100px auto; border-radius: 10px;">
-                                <h1>您沒有權限進入校內網站</h1>
-                                <p>系統將在 <span id="countdown">3</span> 秒後返回...</p>
-                            </div>
-                        `;
-                
-                        // 倒數計時
-                        let seconds = 3;
-                        const countdownElem = document.getElementById('countdown');
-                        const timer = setInterval(() => {
-                            seconds--;
-                            countdownElem.textContent = seconds;
-                            if (seconds <= 0) {
-                                clearInterval(timer);
-                                // 回到前一頁
-                                history.back();
-                            }
-                        }, 1000);
-                    }
-                })
-                .catch(error => {
-                    console.error('IP 檢查失敗:', error);
-                });
-        }
-        
-        function createStars() {
-            const body = document.body;
-            const starCount = 15;
-            
-            for (let i = 0; i < starCount; i++) {
-                const star = document.createElement('div');
-                star.className = 'star';
-                
-                // 隨機位置和延遲
-                star.style.top = `${Math.random() * 100}vh`;
-                star.style.left = `${Math.random() * 100}vw`;
-                star.style.animationDelay = `${Math.random() * 5}s`;
-                
-                body.appendChild(star);
-            }
-        }        
         // Firebase 配置
         const firebaseConfig = {
             apiKey: "AIzaSyArF8xncLwA3osSQ_o6yWIyuOc0TMrXRTY",
