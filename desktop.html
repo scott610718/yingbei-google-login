@@ -13,45 +13,96 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
+            max-width: 100%;
+            margin: 0;
+            padding: 10px;
             text-align: center;
+            background: #0a1128;
+            background-image: url('https://images.unsplash.com/photo-1475274047050-1d0c0975c63e?q=80&w=1440&auto=format&fit=crop');
+            background-size: cover;
+            color: white;
+            overflow: hidden;
+            position: relative;
+            height: 100vh;
         }
+        .star {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: white;
+            border-radius: 50%;
+            animation: shooting-star 5s linear infinite;
+        }
+        @keyframes shooting-star {
+            0% {
+                transform: translateX(-100px) translateY(100px);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            70% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateX(calc(100vw + 100px)) translateY(-100px);
+                opacity: 0;
+            }
+        }        
         .container {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 80vh;
+            height: 95vh;
+            background-color: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+            padding: 10px;
+            max-height: 95vh;
+            overflow-y: auto;
+            width: 90%;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        .logo {
+            height: 50px;
+            margin-left: 10px;
         }
         #qrcode {
-            margin: 20px 0;
+            margin: 15px 0;
         }
         .status {
-            margin: 20px 0;
-            padding: 10px;
+            margin: 15px 0;
+            padding: 8px;
             border-radius: 4px;
+            width: 90%;
         }
         .waiting {
-            background-color: #f0f0f0;
+            background-color: rgba(240, 240, 240, 0.7);
+            color: #333;
         }
         .success {
-            background-color: #d4edda;
+            background-color: rgba(212, 237, 218, 0.7);
             color: #155724;
         }
         .error {
-            background-color: #f8d7da;
+            background-color: rgba(248, 215, 218, 0.7);
             color: #721c24;
         }
         button {
-            padding: 10px 20px;
+            padding: 8px 16px;
             background-color: #4285f4;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 14px;
             margin: 5px;
         }
         button:disabled {
@@ -59,44 +110,59 @@
             cursor: not-allowed;
         }
         #debug {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #f8f9fa;
+            margin-top: 15px;
+            padding: 8px;
+            background-color: rgba(248, 249, 250, 0.7);
             border: 1px solid #ddd;
             text-align: left;
             font-family: monospace;
-            max-height: 150px;
+            height: 80px;
             overflow-y: auto;
             display: none;
+            color: #333;
+            width: 90%;
         }
         .user-profile {
             display: none;
-            margin: 20px 0;
+            margin: 15px 0;
             text-align: center;
         }
         .profile-image {
-            width: 80px;
-            height: 80px;
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         .user-actions {
-            margin-top: 20px;
+            margin-top: 15px;
         }
         .welcome-message {
-            margin-top: 20px;
-            padding: 20px;
-            background-color: #f8f9fa;
+            margin-top: 15px;
+            padding: 15px;
+            background-color: rgba(248, 249, 250, 0.7);
             border-radius: 8px;
-            max-width: 600px;
+            max-width: 90%;
             text-align: center;
             display: none;
+            color: #333;
         }
+        h1 {
+            font-size: 20px;
+            margin: 10px 0;
+        }
+        h2 {
+            font-size: 18px;
+            margin: 8px 0;
+        }        
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>電腦端 - Google 整合應用</h1>
+        <!-- 修改標題區域，添加logo -->
+        <div class="header">
+            <h1>營北國中Google登入 - 電腦端</h1>
+            <img src="https://github.com/scott610718/yingbei-google-login/校徽.png" alt="Ying Pei Logo" class="logo">
+        </div>
         <div id="statusContainer" class="status waiting">
             <p id="statusMessage">請使用手機掃描下方 QR Code</p>
         </div>
@@ -128,10 +194,29 @@
         </div>
         
         <div id="debug"></div>
-        <button id="showDebugBtn" style="margin-top: 20px; background-color: #6c757d;">顯示除錯資訊</button>
+     <!--  <button id="showDebugBtn" style="margin-top: 20px; background-color: #6c757d;">顯示除錯資訊</button>     -->
     </div>
 
     <script>
+        // 在頁面加載時創建星星
+        window.addEventListener('DOMContentLoaded', createStars);
+        
+        function createStars() {
+            const body = document.body;
+            const starCount = 15;
+            
+            for (let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                
+                // 隨機位置和延遲
+                star.style.top = `${Math.random() * 100}vh`;
+                star.style.left = `${Math.random() * 100}vw`;
+                star.style.animationDelay = `${Math.random() * 5}s`;
+                
+                body.appendChild(star);
+            }
+        }        
         // Firebase 配置
         const firebaseConfig = {
             apiKey: "AIzaSyArF8xncLwA3osSQ_o6yWIyuOc0TMrXRTY",
