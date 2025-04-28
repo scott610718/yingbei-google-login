@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>營北國中Google登入 - 手機端</title>
+    <title>手機端 - QR Code 掃描器</title>
     <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.2.1/html5-qrcode.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
@@ -73,11 +73,8 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-
-            <h1>營北國中Google登入 - 手機端</h1>
-            
-        </div>        
+        <h1>手機端 - QR Code 掃描器</h1>
+        
         <div id="statusContainer" class="status waiting">
             <p id="statusMessage">請掃描電腦上顯示的 QR Code</p>
         </div>
@@ -90,7 +87,7 @@
         <div id="googleOneTap"></div>
         
         <div id="debug"></div>
-        <button id="showDebugBtn" style="margin-top: 20px; background-color: #6c757d;">顯示除錯資訊</button>  
+        <button id="showDebugBtn" style="margin-top: 20px; background-color: #6c757d;">顯示除錯資訊</button>
     </div>
 
     <script>
