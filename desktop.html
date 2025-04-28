@@ -198,8 +198,48 @@
     </div>
 
     <script>
+        // 頁面載入時檢查 IP
+        document.addEventListener('DOMContentLoaded', checkIPAccess);        
         // 在頁面加載時創建星星
         window.addEventListener('DOMContentLoaded', createStars);
+
+        // IP 檢查函數
+        function checkIPAccess() {
+            // 使用 API 獲取用戶 IP
+            fetch('https://api.ipify.org?format=json')
+                .then(response => response.json())
+                .then(data => {
+                    const userIP = data.ip;
+                    console.log('用戶 IP:', userIP);
+            
+                    // 檢查 IP 是否在允許範圍內
+                    if (!userIP.startsWith('192.168.')) {
+                        // 顯示權限拒絕訊息
+                        document.body.innerHTML = `
+                            <div style="text-align: center; margin-top: 100px; color: white; background-color: rgba(0,0,0,0.7); padding: 50px; max-width: 600px; margin: 100px auto; border-radius: 10px;">
+                                <h1>您沒有權限進入校內網站</h1>
+                                <p>系統將在 <span id="countdown">3</span> 秒後返回...</p>
+                            </div>
+                        `;
+                
+                        // 倒數計時
+                        let seconds = 3;
+                        const countdownElem = document.getElementById('countdown');
+                        const timer = setInterval(() => {
+                            seconds--;
+                            countdownElem.textContent = seconds;
+                            if (seconds <= 0) {
+                                clearInterval(timer);
+                                // 回到前一頁
+                                history.back();
+                            }
+                        }, 1000);
+                    }
+                })
+                .catch(error => {
+                    console.error('IP 檢查失敗:', error);
+                });
+        }
         
         function createStars() {
             const body = document.body;
