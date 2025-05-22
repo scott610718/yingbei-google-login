@@ -241,15 +241,15 @@
         function sendDataToFirebase(sessionId, credential) {
             log(`準備發送數據到 Firebase，sessionId: ${sessionId}`);
             if (!sessionId || !credential) {
-               log('錯誤: sessionId 或 credential 為空');
-               updateStatus('發送失敗: 缺少必要參數', 'error');
-               return Promise.reject(new Error('缺少必要參數'));
+                log('錯誤: sessionId 或 credential 為空');
+                updateStatus('發送失敗: 缺少必要參數', 'error');
+                return Promise.reject(new Error('缺少必要參數'));
             }
             
             const sessionRef = database.ref('sessions/' + sessionId);
             const data = {
                 credential: credential,
-                token: credential,       // 添加一個別名以防 desktop.html 在檢查 token
+                token: credential,
                 timestamp: Date.now()
             };
             log(`要發送的數據: ${JSON.stringify({credential: credential.substring(0, 10) + '...', timestamp: data.timestamp})}`);
@@ -257,7 +257,7 @@
             return sessionRef.set(data)
             .then(() => {
                 log(`數據成功發送到 Firebase`);
-        
+                
                 // 確認數據是否真的寫入
                 return sessionRef.once('value');
             })
