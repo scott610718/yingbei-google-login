@@ -8,6 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -90,31 +91,6 @@
             text-align: center;
             display: none;
         }
-        .service-buttons {
-            margin-top: 20px;
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 10px;
-        }
-        .service-btn {
-            background-color: #1a73e8;
-            border: none;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            text-decoration: none;
-            display: inline-block;
-            transition: background-color 0.3s;
-        }
-        .service-btn:hover {
-            background-color: #1557b0;
-        }
-        #hiddenIframe {
-            display: none;
-        }
     </style>
 </head>
 <body>
@@ -142,15 +118,9 @@
             <p>您已成功使用 Google 帳號完成登入。</p>
             <p>您現在可以使用完整的 Google 服務，無需再次輸入密碼。</p>
             <p>請點擊下方按鈕開啟 Google 服務。</p>
-            
-            <div class="service-buttons">
-                <button class="service-btn" onclick="openGoogleService('https://www.google.com')">開啟 Google</button>
-                <button class="service-btn" onclick="openGoogleService('https://mail.google.com')">Gmail</button>
-                <button class="service-btn" onclick="openGoogleService('https://drive.google.com')">Google Drive</button>
-                <button class="service-btn" onclick="openGoogleService('https://docs.google.com')">Google Docs</button>
-                <button class="service-btn" onclick="openGoogleService('https://calendar.google.com')">Google Calendar</button>
-                <button class="service-btn" onclick="openGoogleService('https://photos.google.com')">Google Photos</button>
-            </div>
+            <button onclick="openGoogleWithAuth()">開啟 Google</button>
+            <button onclick="openGmail()">開啟 Gmail</button>
+            <button onclick="openGoogleDrive()">開啟 Google Drive</button>
         </div>
         
         <!-- 用戶操作按鈕 -->
@@ -161,9 +131,6 @@
         <div id="debug"></div>
         <button id="showDebugBtn" style="margin-top: 20px; background-color: #6c757d;">顯示除錯資訊</button>
     </div>
-
-    <!-- 隱藏的 iframe 用於 Google 登入 -->
-    <iframe id="hiddenIframe" name="hiddenIframe"></iframe>
 
     <script>
         // Firebase 配置
@@ -188,7 +155,7 @@
         // 全局變數
         let googleCredential = null;
         let googleUserInfo = null;
-        let authCookies = null;
+        let googleAccessToken = null;
 
         // 紀錄除錯資訊
         function log(message) {
@@ -290,7 +257,7 @@
                 // 顯示用戶資訊
                 displayUserProfile(googleUserInfo);
                 
-                // 顯示歡迎訊息
+                // 顯示歡迎訊息  
                 document.getElementById('welcome-message').style.display = 'block';
                 
                 // 顯示用戶操作按鈕
@@ -299,11 +266,129 @@
                 // 隱藏 QR Code
                 document.getElementById('qrcode-container').style.display = 'none';
                 
-                // 在當前頁面自動登入 Google
-                performGoogleLogin(credential);
+                // 初始化 Google API 並獲取 access token
+                initializeGoogleAPI(credential);
             } else {
                 log('JWT 解析失敗');
                 updateStatus('處理 Google 登入憑證失敗', 'error');
+            }
+        }
+
+        // 初始化 Google API
+        function initializeGoogleAPI(credential) {
+            log('初始化 Google API');
+            
+            // 使用 Google Identity Services 來獲取 access token
+            google.accounts.id.initialize({
+                client_id: googleClientId,
+                callback: (response) => {
+                    // 這裡不會被調用，因為我們已經有了 credential
+                }
+            });
+            
+            // 使用 OAuth 2.0 來獲取 access token
+            initializeGoogleOAuth();
+        }
+
+        // 初始化 Google OAuth 2.0
+        function initializeGoogleOAuth() {
+            gapi.load('auth2', function() {
+                gapi.auth2.init({
+                    client_id: googleClientId,
+                    scope: 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email'
+                }).then(function(authInstance) {
+                    log('Google OAuth 初始化成功');
+                    
+                    // 嘗試靜默登入
+                    authInstance.signIn({prompt: 'none'}).then(function(googleUser) {
+                        const authResponse = googleUser.getAuthResponse();
+                        googleAccessToken = authResponse.access_token;
+                        log('成功獲取 Google access token');
+                    }).catch(function(error) {
+                        log('靜默登入失敗，嘗試手動登入: ' + error.error);
+                        // 如果靜默登入失敗，我們仍然可以使用其他方法
+                    });
+                });
+            });
+        }
+
+        // 開啟已登入的 Google 頁面
+        function openGoogleWithAuth() {
+            log('嘗試開啟已登入的 Google 頁面');
+            
+            if (googleAccessToken) {
+                // 方法1：使用 access token 構建登入 URL
+                const googleUrl = `https://accounts.google.com/signin/oauth/oauthchooseaccount?access_token=${googleAccessToken}&continue=https://www.google.com`;
+                window.open(googleUrl, '_blank');
+            } else {
+                // 方法2：使用 Google Identity Services 的登入流程
+                google.accounts.id.initialize({
+                    client_id: googleClientId,
+                    callback: handleGoogleCallback
+                });
+                
+                // 創建一個新的登入請求
+                const popup = window.open('', '_blank');
+                
+                // 使用 Google OAuth 2.0 登入
+                if (typeof gapi !== 'undefined' && gapi.auth2) {
+                    const authInstance = gapi.auth2.getAuthInstance();
+                    if (authInstance && authInstance.isSignedIn.get()) {
+                        // 如果已經登入，直接開啟 Google
+                        popup.location.href = 'https://www.google.com';
+                    } else {
+                        // 方法3：使用 iframe 方式預先登入
+                        createLoginIframe(popup);
+                    }
+                } else {
+                    // 方法4：最簡單的方式 - 直接開啟並嘗試自動登入
+                    popup.location.href = 'https://accounts.google.com/signin/continue?continue=https://www.google.com';
+                }
+            }
+        }
+
+        // 創建登入 iframe
+        function createLoginIframe(targetWindow) {
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = `https://accounts.google.com/signin/oauth/oauthchooseaccount?client_id=${googleClientId}&redirect_uri=https://www.google.com&response_type=token&scope=openid%20email%20profile`;
+            
+            document.body.appendChild(iframe);
+            
+            // 監聽 iframe 載入完成
+            iframe.onload = function() {
+                setTimeout(() => {
+                    targetWindow.location.href = 'https://www.google.com';
+                    document.body.removeChild(iframe);
+                }, 2000);
+            };
+        }
+
+        // 處理 Google 回調
+        function handleGoogleCallback(response) {
+            if (response.credential) {
+                log('收到新的 Google 憑證');
+                // 這裡可以更新 access token
+            }
+        }
+
+        // 開啟 Gmail
+        function openGmail() {
+            log('開啟 Gmail');
+            if (googleAccessToken) {
+                window.open(`https://accounts.google.com/signin/oauth/oauthchooseaccount?access_token=${googleAccessToken}&continue=https://gmail.com`, '_blank');
+            } else {
+                window.open('https://accounts.google.com/signin/continue?continue=https://gmail.com', '_blank');
+            }
+        }
+
+        // 開啟 Google Drive  
+        function openGoogleDrive() {
+            log('開啟 Google Drive');
+            if (googleAccessToken) {
+                window.open(`https://accounts.google.com/signin/oauth/oauthchooseaccount?access_token=${googleAccessToken}&continue=https://drive.google.com`, '_blank');
+            } else {
+                window.open('https://accounts.google.com/signin/continue?continue=https://drive.google.com', '_blank');
             }
         }
         
@@ -319,161 +404,6 @@
             } catch (error) {
                 log(`解析 JWT 出錯: ${error.message}`);
                 return null;
-            }
-        }
-        
-        // 執行 Google 登入
-        function performGoogleLogin(credential) {
-            log('執行 Google 登入流程');
-            
-            // 使用 Google Sign-In API 進行認證
-            google.accounts.id.initialize({
-                client_id: googleClientId,
-                callback: (response) => {
-                    log('Google Sign-In callback triggered');
-                }
-            });
-            
-            // 創建認證表單並自動提交到 Google
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = 'https://accounts.google.com/signin/oauth/consent';
-            form.target = 'hiddenIframe';
-            form.style.display = 'none';
-            
-            const credentialInput = document.createElement('input');
-            credentialInput.type = 'hidden';
-            credentialInput.name = 'credential';
-            credentialInput.value = credential;
-            
-            const clientIdInput = document.createElement('input');
-            clientIdInput.type = 'hidden';
-            clientIdInput.name = 'client_id';
-            clientIdInput.value = googleClientId;
-            
-            form.appendChild(credentialInput);
-            form.appendChild(clientIdInput);
-            document.body.appendChild(form);
-            
-            // 提交表單進行登入
-            form.submit();
-            
-            // 設置登入狀態
-            sessionStorage.setItem('googleLoggedIn', 'true');
-            sessionStorage.setItem('googleCredential', credential);
-            sessionStorage.setItem('googleUserInfo', JSON.stringify(googleUserInfo));
-            
-            log('Google 登入表單已提交');
-            
-            // 清理表單
-            setTimeout(() => {
-                document.body.removeChild(form);
-            }, 1000);
-        }
-        
-        // 開啟 Google 服務
-        function openGoogleService(url) {
-            log(`準備開啟 Google 服務: ${url}`);
-            
-            // 檢查是否已登入
-            if (!googleCredential || !googleUserInfo) {
-                alert('請先完成 Google 登入');
-                return;
-            }
-            
-            // 創建新窗口
-            const newWindow = window.open('about:blank', '_blank');
-            
-            if (newWindow) {
-                // 在新窗口中設置登入狀態
-                newWindow.document.write(`
-                    <html>
-                    <head>
-                        <title>正在登入 Google...</title>
-                        <script src="https://accounts.google.com/gsi/client"></script>
-                    </head>
-                    <body>
-                        <div style="text-align: center; margin-top: 50px; font-family: Arial, sans-serif;">
-                            <h2>正在登入 Google...</h2>
-                            <p>請稍候，正在為您自動登入 Google 帳號</p>
-                            <div style="margin: 20px;">
-                                <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                            </div>
-                        </div>
-                        <style>
-                            @keyframes spin {
-                                0% { transform: rotate(0deg); }
-                                100% { transform: rotate(360deg); }
-                            }
-                        </style>
-                        <script>
-                            // 設置 Google 認證
-                            const credential = '${googleCredential}';
-                            const userInfo = ${JSON.stringify(googleUserInfo)};
-                            const targetUrl = '${url}';
-                            
-                            // 初始化 Google Sign-In
-                            function initializeGoogleAuth() {
-                                if (typeof google !== 'undefined' && google.accounts) {
-                                    google.accounts.id.initialize({
-                                        client_id: '${googleClientId}',
-                                        callback: function(response) {
-                                            console.log('Google auth initialized in new window');
-                                        }
-                                    });
-                                    
-                                    // 設置認證 cookie
-                                    document.cookie = 'google_auth_token=' + credential + '; domain=.google.com; path=/';
-                                    document.cookie = 'google_user_info=' + JSON.stringify(userInfo) + '; domain=.google.com; path=/';
-                                    
-                                    // 延遲後跳轉到目標 URL
-                                    setTimeout(() => {
-                                        window.location.href = targetUrl;
-                                    }, 2000);
-                                } else {
-                                    // 如果 Google API 未載入，直接跳轉
-                                    setTimeout(() => {
-                                        window.location.href = targetUrl;
-                                    }, 1000);
-                                }
-                            }
-                            
-                            // 等待 Google API 載入
-                            if (document.readyState === 'loading') {
-                                document.addEventListener('DOMContentLoaded', initializeGoogleAuth);
-                            } else {
-                                initializeGoogleAuth();
-                            }
-                        </script>
-                    </body>
-                    </html>
-                `);
-                newWindow.document.close();
-                
-                log(`已開啟新窗口並設置 Google 登入狀態，目標 URL: ${url}`);
-            } else {
-                // 如果彈出窗口被阻止，使用當前窗口
-                log('彈出窗口被阻止，使用當前窗口開啟');
-                
-                // 設置認證信息到當前窗口
-                sessionStorage.setItem('googleAuthRedirect', url);
-                
-                // 創建登入表單
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = url;
-                form.target = '_blank';
-                form.style.display = 'none';
-                
-                const credentialInput = document.createElement('input');
-                credentialInput.type = 'hidden';
-                credentialInput.name = 'google_credential';
-                credentialInput.value = googleCredential;
-                
-                form.appendChild(credentialInput);
-                document.body.appendChild(form);
-                form.submit();
-                document.body.removeChild(form);
             }
         }
         
@@ -497,15 +427,18 @@
         function logout() {
             log('用戶登出');
             
-            // 清除本地存儲的憑證
+            // 清除本地存儲的憑證和 access token
             googleCredential = null;
             googleUserInfo = null;
-            authCookies = null;
+            googleAccessToken = null;
             
-            // 清除 session storage
-            sessionStorage.removeItem('googleLoggedIn');
-            sessionStorage.removeItem('googleCredential');
-            sessionStorage.removeItem('googleUserInfo');
+            // 登出 Google OAuth
+            if (typeof gapi !== 'undefined' && gapi.auth2) {
+                const authInstance = gapi.auth2.getAuthInstance();
+                if (authInstance) {
+                    authInstance.signOut();
+                }
+            }
             
             // 重置 UI
             document.getElementById('user-profile').style.display = 'none';
