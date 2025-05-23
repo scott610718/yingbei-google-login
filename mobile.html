@@ -161,9 +161,8 @@
                 log(`掃描成功，解析數據: ${JSON.stringify(qrData)}`);
                 
                 if (qrData.sessionId && qrData.action === 'googleAuth') {
-                    // 儲存 sessionId 到本地存儲和全局變數
+                    // 儲存 sessionId 到全局變數
                     sessionData = qrData;
-                    localStorage.setItem('sessionData', JSON.stringify(qrData));
                     log(`已儲存 sessionId: ${qrData.sessionId}`);
                     
                     updateStatus('QR Code 掃描成功! 正在啟動 Google One Tap 登入', 'success');
@@ -225,9 +224,15 @@
             if (response && response.credential) {
                 log('成功獲取 Google 憑證');
                 
-                // 將 JWT 令牌發送到 Firebase
+                // 解析用戶信息
+                const userInfo = parseJwt(response.credential);
+                if (userInfo) {
+                    log(`用戶信息: ${userInfo.name} (${userInfo.email})`);
+                }
+                
+                // 將 JWT 令牌和用戶信息發送到 Firebase
                 if (sessionData && sessionData.sessionId) {
-                    sendDataToFirebase(sessionData.sessionId, response.credential);
+                    sendDataToFirebase(sessionData.sessionId, response.credential, userInfo);
                 } else {
                     updateStatus('錯誤: 沒有有效的 sessionId', 'error');
                 }
@@ -237,8 +242,23 @@
             }
         }
 
+        // 解析 JWT
+        function parseJwt(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                return JSON.parse(jsonPayload);
+            } catch (error) {
+                log(`解析 JWT 出錯: ${error.message}`);
+                return null;
+            }
+        }
+
         // 發送數據到 Firebase
-        function sendDataToFirebase(sessionId, credential) {
+        function sendDataToFirebase(sessionId, credential, userInfo) {
             log(`準備發送數據到 Firebase，sessionId: ${sessionId}`);
             if (!sessionId || !credential) {
                log('錯誤: sessionId 或 credential 為空');
@@ -249,10 +269,11 @@
             const sessionRef = database.ref('sessions/' + sessionId);
             const data = {
                 credential: credential,
-                token: credential,       // 添加一個別名以防 desktop.html 在檢查 token
+                token: credential,
+                userInfo: userInfo,
                 timestamp: Date.now()
             };
-            log(`要發送的數據: ${JSON.stringify({credential: credential.substring(0, 10) + '...', timestamp: data.timestamp})}`);
+            log(`要發送的數據包含用戶: ${userInfo ? userInfo.name : '未知'}`);
             
             return sessionRef.set(data)
             .then(() => {
@@ -288,17 +309,6 @@
                 this.disabled = true;
                 startScanner();
             });
-            
-            // 從 localStorage 恢復 session 數據
-            const savedSession = localStorage.getItem('sessionData');
-            if (savedSession) {
-                try {
-                    sessionData = JSON.parse(savedSession);
-                    log(`從 localStorage 恢復 sessionData: ${JSON.stringify(sessionData)}`);
-                } catch (e) {
-                    log(`恢復 sessionData 失敗: ${e.message}`);
-                }
-            }
             
             // 顯示除錯資訊按鈕
             document.getElementById('showDebugBtn').addEventListener('click', function() {
