@@ -26,6 +26,9 @@
         from { opacity: 0; transform: translateY(10px); } 
         to { opacity: 1; transform: translateY(0); } 
       }
+      .error-message-container {
+        padding: 20px; margin: 20px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 5px; font-family: sans-serif;
+      }
     </style>
 </head>
 <body class="bg-slate-100">
@@ -39,31 +42,29 @@
       // --- START OF INLINED types.ts ---
       var AuthStatus;
       (function (AuthStatus) {
-          AuthStatus["PENDING"] = "pending"; // 等待授权
-          AuthStatus["AUTHORIZED"] = "authorized"; // 已授权 (手机端完成)
-          AuthStatus["TOKEN_RECEIVED"] = "token_received"; // 令牌已接收 (桌面端收到)
-          AuthStatus["FETCHING_USER"] = "fetching_user"; // 获取用户信息中
-          AuthStatus["USER_INFO_LOADED"] = "user_info_loaded"; // 用户信息已加载
-          AuthStatus["ERROR"] = "error"; // 发生错误
-          AuthStatus["LOGGED_OUT"] = "logged_out"; // 已登出
-          AuthStatus["SESSION_EXPIRED"] = "session_expired"; // 会话过期
-          AuthStatus["INITIALIZING"] = "initializing"; // 初始化中
+          AuthStatus["PENDING"] = "pending"; 
+          AuthStatus["AUTHORIZED"] = "authorized"; 
+          AuthStatus["TOKEN_RECEIVED"] = "token_received"; 
+          AuthStatus["FETCHING_USER"] = "fetching_user"; 
+          AuthStatus["USER_INFO_LOADED"] = "user_info_loaded"; 
+          AuthStatus["ERROR"] = "error"; 
+          AuthStatus["LOGGED_OUT"] = "logged_out"; 
+          AuthStatus["SESSION_EXPIRED"] = "session_expired"; 
+          AuthStatus["INITIALIZING"] = "initializing"; 
       })(AuthStatus || (AuthStatus = {}));
       // --- END OF INLINED types.ts ---
 
       // --- START OF INLINED constants.tsx ---
       const FIREBASE_CONFIG = {
-            apiKey: "AIzaSyArF8xncLwA3osSQ_o6yWIyuOc0TMrXRTY",
-            authDomain: "yingpei--login.firebaseapp.com",
-            databaseURL: "https://yingpei--login-default-rtdb.firebaseio.com",
-            projectId: "yingpei--login",
-            storageBucket: "yingpei--login.firebasestorage.app",
-            messagingSenderId: "261477282402",
-            appId: "1:261477282402:web:557f0be058e07cd642173b",
-            measurementId: "G-EB9PR17TJL"
-
+          apiKey: "YOUR_FIREBASE_API_KEY_PLACEHOLDER", // <--- 在此修改 Firebase API Key
+          authDomain: "your-project-id-placeholder.firebaseapp.com", // <--- 在此修改 Firebase Auth Domain
+          databaseURL: "https://your-project-id-placeholder.firebaseio.com", // <--- 在此修改 Firebase Database URL
+          projectId: "your-project-id-placeholder", // <--- 在此修改 Firebase Project ID
+          storageBucket: "your-project-id-placeholder.appspot.com", // <--- 在此修改 Firebase Storage Bucket
+          messagingSenderId: "YOUR_FIREBASE_MESSAGING_SENDER_ID_PLACEHOLDER", // <--- 在此修改 Firebase Messaging Sender ID
+          appId: "YOUR_FIREBASE_APP_ID_PLACEHOLDER" // <--- 在此修改 Firebase App ID
       };
-      const GOOGLE_CLIENT_ID = "130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com"; // <--- 在此修改 Google Client ID
+      const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com_PLACEHOLDER"; // <--- 在此修改 Google Client ID
       const FB_AUTH_PATH = 'authorizations';
       const APP_TITLE = "跨设备 Google 授权";
       const DESKTOP_PAGE_TITLE = "电脑端操作界面";
@@ -74,7 +75,7 @@
           statusInitializing: "初始化中...",
           statusPending: "等待手机端授权...",
           statusTokenReceived: "令牌已接收，验证中...",
-          statusAuthorized: "授权成功",
+          statusAuthorized: "授权成功", // Note: This status is usually transient on desktop before fetching user.
           statusFetchingUser: "正在获取用户 Google 资料...",
           statusUserInfoLoaded: "用户信息加载成功",
           statusError: "授权失败",
@@ -115,20 +116,60 @@
       const LoadingSpinnerIcon = (props) => (React.createElement("svg", { className: "animate-spin -ml-1 mr-3 h-5 w-5 text-sky-500", xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", ...props }, React.createElement("circle", { className: "opacity-25", cx: "12", cy: "12", r: "10", stroke: "currentColor", strokeWidth: "4" }), React.createElement("path", { className: "opacity-75", fill: "currentColor", d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" })));
       // --- END OF INLINED constants.tsx ---
 
-      // --- START OF INLINED firebaseService.ts ---
-      // Firebase is globally available from CDN script (window.firebase)
-      if (!firebase.apps.length) {
-          firebase.initializeApp(FIREBASE_CONFIG);
-      } else {
-          firebase.app(); 
-      }
-      const database = firebase.database();
+      // --- Firebase Initialization ---
+      let firebaseInitialized = false;
+      let database = null; // Will hold Firebase database instance
 
+      try {
+          if (!window.firebase) {
+              throw new Error("Firebase SDK not loaded. Check script tags.");
+          }
+          if (Object.values(FIREBASE_CONFIG).some(val => val.includes("PLACEHOLDER") || val.includes("YOUR_"))) {
+               throw new Error("Firebase config contains placeholder values. Please replace them.");
+          }
+          if (!firebase.apps.length) {
+              firebase.initializeApp(FIREBASE_CONFIG);
+              console.log("Desktop: Firebase initialized successfully.");
+          } else {
+              firebase.app(); 
+              console.log("Desktop: Firebase app already initialized.");
+          }
+          database = firebase.database(); // Get database instance
+          firebaseInitialized = true;
+      } catch (e) {
+          console.error("CRITICAL: Firebase initialization failed!", e);
+          const rootEl = document.getElementById('root');
+          if (rootEl) {
+              rootEl.innerHTML = `
+                  <div class="error-message-container">
+                      <h2>Firebase 初始化失败 (Firebase Initialization Failed)</h2>
+                      <p>请检查 Firebase 配置 (FIREBASE_CONFIG) 是否已在 HTML 文件中正确设置，并且占位符已被真实值替换。</p>
+                      <p>Please check if your Firebase configuration (FIREBASE_CONFIG) is correctly set in the HTML file and placeholders are replaced with actual values.</p>
+                      <p><strong>错误详情 (Error details):</strong> ${e.message}</p>
+                      <p><em>打开浏览器控制台 (F12) 查看更多信息。(Open browser console (F12) for more details.)</em></p>
+                  </div>`;
+          }
+      }
+      
+      if (GOOGLE_CLIENT_ID.includes("YOUR_GOOGLE_CLIENT_ID") || GOOGLE_CLIENT_ID.includes("PLACEHOLDER")) {
+          console.warn("警告: Google Client ID (GOOGLE_CLIENT_ID) 似乎仍是占位符。Google 登录功能可能无法正常工作。请在 mobile.html 和 constants.tsx (如果仍在使用) 中更新它。");
+      }
+      // --- END OF Firebase Initialization ---
+
+      // --- START OF INLINED firebaseService.ts ---
       const getFirebaseServerTimestamp = () => {
+          if (!firebaseInitialized || !firebase.database || !firebase.database.ServerValue) { // Check for firebase.database
+            console.warn("Firebase not fully available for ServerValue.TIMESTAMP. Returning client timestamp as fallback.");
+            return Date.now(); // Fallback, though not ideal.
+          }
           return firebase.database.ServerValue.TIMESTAMP;
       };
 
       const writeAuthData = async (sessionId, data) => {
+          if (!firebaseInitialized || !database) {
+            console.error("Firebase not initialized. Cannot write auth data for session:", sessionId);
+            throw new Error("Firebase not initialized or database unavailable.");
+          }
           try {
               const dataToWrite = {
                   status: data.status || AuthStatus.PENDING,
@@ -148,6 +189,12 @@
       };
 
       const listenToAuthData = (sessionId, callback) => {
+          if (!firebaseInitialized || !database) {
+            console.error("Firebase not initialized. Cannot listen to auth data for session:", sessionId);
+            // Immediately call callback with an error state or do nothing and let it fail.
+            // For now, let component handle this via subsequent errors.
+            return () => {}; // Return a no-op unsubscribe function
+          }
           const path = `${FB_AUTH_PATH}/${sessionId}`;
           const ref = database.ref(path);
           const listener = ref.on('value', (snapshot) => {
@@ -157,10 +204,16 @@
               console.error("Firebase: 监听授权数据失败 (Error listening to auth data):", error);
               callback({ status: AuthStatus.ERROR, error: UI_TEXT.firebaseConnectionError });
           });
-          return () => ref.off('value', listener);
+          return () => {
+            if (database) ref.off('value', listener); // Check database again for safety
+          };
       };
 
       const deleteAuthData = async (sessionId) => {
+          if (!firebaseInitialized || !database) {
+            console.warn("Firebase not initialized. Cannot delete auth data for session:", sessionId);
+            return; // Don't throw, as it's often a cleanup op.
+          }
           try {
               await database.ref(`${FB_AUTH_PATH}/${sessionId}`).remove();
           } catch (error) {
@@ -203,7 +256,7 @@
       };
       const fetchUserProfile = async (idToken) => {
           console.log("GoogleAuthService: 尝试从 ID 令牌解析用户资料 (Attempting to parse user profile from ID token):", idToken ? idToken.substring(0,30) + "..." : "null");
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 100)); // Simulate async
           const profile = parseIdToken(idToken);
           if (!profile) {
               console.error("GoogleAuthService: 无效的 ID 令牌或解析失败 (Invalid ID token or failed to parse).");
@@ -230,6 +283,11 @@
           ];
 
           const initializeNewSession = useCallback(() => {
+              if (!firebaseInitialized) {
+                  setErrorMessageState(UI_TEXT.firebaseConnectionError + " (未初始化)");
+                  setAuthStatusState(AuthStatus.ERROR);
+                  return null; // Return null or handle error appropriately
+              }
               if (sessionId) {
                   deleteAuthData(sessionId).catch(err => console.warn("未能清理旧会话 (Could not clean up old session):", err));
               }
@@ -239,9 +297,6 @@
               setErrorMessageState('');
               setAuthStatusState(AuthStatus.PENDING);
               
-              // Construct mobile URL carefully for static HTML deployment
-              // Assuming mobile.html is in the same directory or a known relative path.
-              // For GitHub Pages, if desktop.html is at root, mobile.html is also at root.
               const currentPath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
               const mobileUrl = `${window.location.origin}${currentPath}/mobile.html#${newSessionId}`;
               setQrCodeValueState(mobileUrl);
@@ -250,24 +305,31 @@
               writeAuthData(newSessionId, { status: AuthStatus.PENDING, timestamp: getFirebaseServerTimestamp() })
                   .catch(error => {
                       console.error("Desktop: 初始化 Firebase 会话失败 (Failed to initialize Firebase session):", error);
-                      setErrorMessageState(UI_TEXT.firebaseConnectionError);
+                      setErrorMessageState(error.message || UI_TEXT.firebaseConnectionError);
                       setAuthStatusState(AuthStatus.ERROR);
                   });
               return newSessionId;
-          }, [sessionId]); 
+          }, [sessionId]); // sessionId dependency is important here
 
           useEffect(() => {
-              initializeNewSession(); 
-          }, []);
+            if (firebaseInitialized) { // Only initialize if Firebase is ready
+              initializeNewSession();
+            } else {
+              // Error message already shown by global init block, or set state here
+              setAuthStatusState(AuthStatus.ERROR);
+              setErrorMessageState(UI_TEXT.firebaseConnectionError + " (初始化失败)");
+            }
+             // eslint-disable-next-line react-hooks/exhaustive-deps
+          }, [firebaseInitialized]); // Rerun when firebaseInitialized changes
 
           useEffect(() => {
-              if (!sessionId || authStatus === AuthStatus.INITIALIZING) {
+              if (!firebaseInitialized || !sessionId || authStatus === AuthStatus.INITIALIZING) {
                   return; 
               }
               console.log(`Desktop: 开始监听会话 (Start listening for session) ID: ${sessionId}`);
               const unsubscribe = listenToAuthData(sessionId, async (data) => {
                   if (!data) {
-                      if (authStatus !== AuthStatus.PENDING && authStatus !== AuthStatus.LOGGED_OUT) {
+                      if (authStatus !== AuthStatus.PENDING && authStatus !== AuthStatus.LOGGED_OUT && authStatus !== AuthStatus.INITIALIZING) {
                           console.warn(`Desktop: Firebase 数据为空，会话 (Firebase data became null for session) ID ${sessionId}. 可能已过期或被删除 (Possibly expired or deleted).`);
                           setAuthStatusState(AuthStatus.SESSION_EXPIRED);
                           setErrorMessageState(UI_TEXT.statusSessionExpired);
@@ -299,18 +361,20 @@
                           }
                           break;
                       case AuthStatus.PENDING:
-                          if (authStatus !== AuthStatus.USER_INFO_LOADED && authStatus !== AuthStatus.FETCHING_USER && authStatus !== AuthStatus.TOKEN_RECEIVED) {
+                          // Avoid reverting from a more advanced state back to PENDING unless it's a deliberate reset
+                          if (authStatus !== AuthStatus.USER_INFO_LOADED && authStatus !== AuthStatus.FETCHING_USER && authStatus !== AuthStatus.TOKEN_RECEIVED && authStatus !== AuthStatus.LOGGED_OUT) {
                               setAuthStatusState(AuthStatus.PENDING);
                           }
                           break;
                       case AuthStatus.ERROR:
                           setAuthStatusState(AuthStatus.ERROR);
-                          setUserProfileState(null);
+                          setUserProfileState(null); // Clear profile on error
                           break;
                       default:
-                          console.log(`Desktop: 未处理的授权状态 (Unhandled auth status): ${data.status}`);
-                          if (!userProfile) {
-                              setAuthStatusState(AuthStatus.PENDING); 
+                          // This case might be hit if Firebase data is unusual or status is an old/unexpected value
+                          console.log(`Desktop: 未处理的授权状态或 Firebase 数据异常 (Unhandled auth status or unusual Firebase data): ${data.status}`);
+                          if (!userProfile && authStatus !== AuthStatus.LOGGED_OUT) { // If no user profile and not explicitly logged out, revert to pending
+                             setAuthStatusState(AuthStatus.PENDING); 
                           }
                           break;
                   }
@@ -319,26 +383,32 @@
                   console.log(`Desktop: 停止监听会话 (Stop listening for session) ID: ${sessionId}`);
                   unsubscribe();
               };
-          }, [sessionId, authStatus, userProfile]); 
+          }, [sessionId, authStatus, userProfile, firebaseInitialized]); 
 
           const handleLogoutOrReauthorize = () => {
               console.log("Desktop: 用户登出/重新授权 (User logout/re-authorize)");
               setAuthStatusState(AuthStatus.LOGGED_OUT); 
-              initializeNewSession(); 
+              if (firebaseInitialized) {
+                  initializeNewSession(); 
+              } else {
+                  setErrorMessageState(UI_TEXT.firebaseConnectionError + " (无法重新授权)");
+                  setAuthStatusState(AuthStatus.ERROR);
+              }
           };
           
           const getStatusMessage = () => {
               if (errorMessage) return `${UI_TEXT.statusError}: ${errorMessage}`;
+              if (!firebaseInitialized && authStatus !== AuthStatus.USER_INFO_LOADED) return UI_TEXT.firebaseConnectionError + " (初始化失败)";
               switch (authStatus) {
                   case AuthStatus.INITIALIZING: return UI_TEXT.statusInitializing;
                   case AuthStatus.PENDING: return UI_TEXT.statusPending;
                   case AuthStatus.TOKEN_RECEIVED: return UI_TEXT.statusTokenReceived;
-                  // case AuthStatus.AUTHORIZED: return UI_TEXT.statusAuthorized; // This state is transient on desktop
+                  // AuthStatus.AUTHORIZED is mostly a mobile-side or transient server-side status. Desktop moves to FETCHING_USER.
                   case AuthStatus.FETCHING_USER: return UI_TEXT.statusFetchingUser;
                   case AuthStatus.USER_INFO_LOADED: return UI_TEXT.statusUserInfoLoaded;
                   case AuthStatus.LOGGED_OUT: return UI_TEXT.statusLoggedOut;
                   case AuthStatus.SESSION_EXPIRED: return UI_TEXT.statusSessionExpired;
-                  case AuthStatus.ERROR: return `${UI_TEXT.statusError}${errorMessage ? ': ' + errorMessage : ''}`;
+                  case AuthStatus.ERROR: return `${UI_TEXT.statusError}${errorMessage ? ': ' + errorMessage : ''}`; // Error message is already prepended if it exists
                   default: return UI_TEXT.statusPending;
               }
           };
@@ -349,14 +419,16 @@
             authStatus !== AuthStatus.USER_INFO_LOADED && (
               React.createElement("div", { className: "mb-8 p-6 border border-dashed border-sky-300 rounded-lg bg-sky-50" },
                 React.createElement("p", { className: "text-md text-slate-700 mb-4" }, UI_TEXT.scanQrCode),
-                qrCodeValue && QRCodeCanvas ? (
+                qrCodeValue && QRCodeCanvas && firebaseInitialized ? (
                   React.createElement("div", { className: "qr-code-container bg-white p-4 border rounded-md shadow-sm inline-block" },
                     React.createElement(QRCodeCanvas, { value: qrCodeValue, size: 200, level: "M" })
                   )
                 ) : (
                   React.createElement("div", { className: "w-[200px] h-[200px] bg-gray-200 flex items-center justify-center rounded-md mx-auto" },
                     React.createElement(QrCodeIcon, { className: "w-16 h-16 text-gray-400" }),
-                    !QRCodeCanvas && React.createElement("p", {className: "text-xs text-red-500 mt-1"}, "QR Code component failed to load.")
+                    (!QRCodeCanvas || !firebaseInitialized) && React.createElement("p", {className: "text-xs text-red-500 mt-1"}, 
+                      !firebaseInitialized ? "Firebase 未初始化。" : "QR Code 组件加载失败。"
+                    )
                   )
                 ),
                 React.createElement("p", { className: "mt-4 text-xs text-gray-500 break-all" }, "Session URL: ", qrCodeValue || '生成中 (Generating)...'),
@@ -366,15 +438,15 @@
             React.createElement("div", { className: "mb-6 p-4 border rounded-lg", role: "status", "aria-live": "polite" },
               React.createElement("h3", { className: "text-lg font-medium text-slate-700 mb-2" }, UI_TEXT.authStatus),
               React.createElement("div", { className: "flex items-center" },
-                (authStatus === AuthStatus.PENDING || authStatus === AuthStatus.FETCHING_USER || authStatus === AuthStatus.INITIALIZING) && (
+                (authStatus === AuthStatus.PENDING || authStatus === AuthStatus.FETCHING_USER || authStatus === AuthStatus.INITIALIZING) && firebaseInitialized && (
                   React.createElement(LoadingSpinnerIcon, { className: "w-5 h-5 mr-2 text-sky-500" })
                 ),
-                React.createElement("p", { className: `text-md ${authStatus === AuthStatus.ERROR || authStatus === AuthStatus.SESSION_EXPIRED ? 'text-red-600' : authStatus === AuthStatus.USER_INFO_LOADED ? 'text-green-600' : 'text-slate-600'}` },
+                React.createElement("p", { className: `text-md ${authStatus === AuthStatus.ERROR || authStatus === AuthStatus.SESSION_EXPIRED || !firebaseInitialized ? 'text-red-600' : authStatus === AuthStatus.USER_INFO_LOADED ? 'text-green-600' : 'text-slate-600'}` },
                   getStatusMessage()
                 )
               )
             ),
-            authStatus === AuthStatus.USER_INFO_LOADED && userProfile && (
+            authStatus === AuthStatus.USER_INFO_LOADED && userProfile && firebaseInitialized && (
               React.createElement("div", { className: "animate-fadeIn p-6 border border-green-300 rounded-lg bg-green-50" },
                 React.createElement("h3", { className: "text-xl font-semibold text-green-700 mb-4" }, UI_TEXT.userProfile),
                 React.createElement("div", { className: "flex items-center space-x-4 mb-6" },
@@ -407,12 +479,13 @@
             React.createElement("div", { className: "mt-8 flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-4" },
               React.createElement("button", {
                 onClick: handleLogoutOrReauthorize,
-                className: "w-full sm:w-auto flex items-center justify-center px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75"
+                disabled: !firebaseInitialized,
+                className: `w-full sm:w-auto flex items-center justify-center px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 ${!firebaseInitialized ? 'opacity-50 cursor-not-allowed' : ''}`
               },
                 React.createElement(LogoutIcon, { className: "w-5 h-5 mr-2" }),
                 authStatus === AuthStatus.USER_INFO_LOADED ? UI_TEXT.logout : UI_TEXT.reauthorize
               ),
-              (authStatus === AuthStatus.ERROR || authStatus === AuthStatus.SESSION_EXPIRED) && (
+              (authStatus === AuthStatus.ERROR || authStatus === AuthStatus.SESSION_EXPIRED) && firebaseInitialized && (
                 React.createElement("button", {
                   onClick: handleLogoutOrReauthorize,
                   className: "w-full sm:w-auto flex items-center justify-center px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-opacity-75"
@@ -435,7 +508,7 @@
               React.createElement("h1", { className: "text-2xl font-semibold text-center" }, APP_TITLE)
             ),
             React.createElement("main", { className: "p-4 sm:p-6" },
-              React.createElement(DesktopPage, null)
+              firebaseInitialized ? React.createElement(DesktopPage, null) : null // Only render if Firebase init was successful
             ),
             React.createElement("footer", { className: "text-center p-4 text-sm text-slate-500 mt-8" },
               React.createElement("p", null, "\u00a9 ", new Date().getFullYear(), " 跨设备授权演示 (Cross-Device Auth Demo)")
@@ -446,12 +519,18 @@
 
       const rootElement = document.getElementById('root');
       if (!rootElement) {
-        throw new Error("找不到根元素。(Could not find root element to mount to)");
+        // This error is critical and means the HTML structure is broken.
+        console.error("CRITICAL: Root element with ID 'root' not found in HTML.");
+        document.body.innerHTML = "<div class='error-message-container'><h2>发生严重错误 (Critical Error)</h2><p>无法找到页面挂载点 (Could not find page mount point 'root'). HTML 结构可能已损坏。</p></div>";
+      } else if (firebaseInitialized) { // Only attempt to render React app if Firebase successfully initialized
+        const root = ReactDOM.createRoot(rootElement);
+        root.render(
+          React.createElement(StrictMode, null, React.createElement(AppDesktop, null))
+        );
+      } else {
+        // Error message for Firebase init failure is already in #root from the catch block.
+        console.log("React rendering skipped due to Firebase initialization failure.");
       }
-      const root = ReactDOM.createRoot(rootElement);
-      root.render(
-        React.createElement(StrictMode, null, React.createElement(AppDesktop, null))
-      );
     </script>
 </body>
 </html>
