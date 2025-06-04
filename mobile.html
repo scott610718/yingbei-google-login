@@ -1,98 +1,54 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>手機端 - QR Code 掃描器</title>
-    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.2.1/html5-qrcode.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>跨设备 Google 授权 - 手机端</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDKs (Compat version) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database-compat.js"></script>
+    <!-- html5-qrcode library for QR code scanning -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <!-- Google Identity Services (GIS) client library -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.1.0",
+    "react-dom/client": "https://esm.sh/react-dom@^19.1.0/client"
+    // qrcode.react is not needed for mobile page
+  }
+}
+</script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            max-width: 500px;
-            margin: 0 auto;
-        }
-        .container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        #reader {
-            width: 100%;
-            max-width: 400px;
-        }
-        button {
-            padding: 10px 20px;
-            background-color: #4285f4;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 10px;
-            font-size: 16px;
-        }
-        .status {
-            margin: 20px 0;
-            padding: 10px;
-            border-radius: 4px;
-            width: 100%;
-        }
-        .waiting {
-            background-color: #f0f0f0;
-        }
-        .success {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        .error {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-        #debug {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border: 1px solid #ddd;
-            text-align: left;
-            font-family: monospace;
-            width: 100%;
-            max-height: 150px;
-            overflow-y: auto;
-            display: none;
-        }
-        #googleOneTap {
-            margin-top: 20px;
-            text-align: center;
-            display: none;
-        }
+      body { margin: 0; font-family: sans-serif; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>手機端 - QR Code 掃描器</h1>
-        
-        <div id="statusContainer" class="status waiting">
-            <p id="statusMessage">請掃描電腦上顯示的 QR Code</p>
-        </div>
-        
-        <div id="scannerContainer">
-            <div id="reader"></div>
-            <button id="startScanBtn">開始掃描</button>
-        </div>
-        
-        <div id="googleOneTap"></div>
-        
-        <div id="debug"></div>
-        <button id="showDebugBtn" style="margin-top: 20px; background-color: #6c757d;">顯示除錯資訊</button>
-    </div>
+<body class="bg-slate-100">
+    <div id="root"></div>
 
-    <script>
-        // Firebase 配置
-        const firebaseConfig = {
+    <script type="module">
+      import React, { useState, useEffect, useRef, StrictMode } from 'react';
+      import ReactDOM from 'react-dom/client';
+
+      // --- START OF INLINED types.ts ---
+      var AuthStatus;
+      (function (AuthStatus) {
+          AuthStatus["PENDING"] = "pending";
+          AuthStatus["AUTHORIZED"] = "authorized";
+          AuthStatus["TOKEN_RECEIVED"] = "token_received";
+          AuthStatus["FETCHING_USER"] = "fetching_user";
+          AuthStatus["USER_INFO_LOADED"] = "user_info_loaded";
+          AuthStatus["ERROR"] = "error";
+          AuthStatus["LOGGED_OUT"] = "logged_out";
+          AuthStatus["SESSION_EXPIRED"] = "session_expired";
+          AuthStatus["INITIALIZING"] = "initializing";
+      })(AuthStatus || (AuthStatus = {}));
+      // --- END OF INLINED types.ts ---
+
+      // --- START OF INLINED constants.tsx ---
+      const FIREBASE_CONFIG = {
             apiKey: "AIzaSyArF8xncLwA3osSQ_o6yWIyuOc0TMrXRTY",
             authDomain: "yingpei--login.firebaseapp.com",
             databaseURL: "https://yingpei--login-default-rtdb.firebaseio.com",
@@ -101,217 +57,366 @@
             messagingSenderId: "261477282402",
             appId: "1:261477282402:web:557f0be058e07cd642173b",
             measurementId: "G-EB9PR17TJL"
-        };
 
-        // Google One Tap 客戶端 ID
-        const googleClientId = '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com';
+      };
+      const GOOGLE_CLIENT_ID = "130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com"; // <--- 在此修改 Google Client ID
+      const FB_AUTH_PATH = 'authorizations';
+      const APP_TITLE = "跨设备 Google 授权";
+      const MOBILE_PAGE_TITLE = "手机端授权";
+      
+      const UI_TEXT = {
+          scanQrCode: "请使用手机扫描下方二维码进行 Google 授权：",
+          authStatus: "授权状态",
+          statusInitializing: "初始化中...",
+          statusPending: "等待手机端授权...",
+          statusTokenReceived: "令牌已接收，验证中...",
+          statusAuthorized: "授权成功",
+          statusFetchingUser: "正在获取用户 Google 资料...",
+          statusUserInfoLoaded: "用户信息加载成功",
+          statusError: "授权失败",
+          statusLoggedOut: "已登出。请重新授权。",
+          statusSessionExpired: "会话已过期或无效，请重新授权。",
+          fetchUserInfoError: "获取用户信息失败，请检查令牌或网络连接。",
+          googleServices: "Google 服务",
+          logout: "退出登录",
+          reauthorize: "重新授权",
+          scanQrOnComputer: "请扫描电脑屏幕上的二维码",
+          orEnterSessionId: "或手动输入 Session ID (如果二维码无法扫描)",
+          sessionIdInputLabel: "Session ID",
+          startScan: "开始扫描二维码",
+          stopScan: "停止扫描",
+          loginWithGoogle: "使用 Google 登录授权",
+          authorizing: "正在授权...",
+          authSuccessMobile: "授权成功！请返回电脑端查看。",
+          authErrorMobile: "授权失败，请重试。",
+          qrScannerError: "二维码扫描器初始化失败。",
+          qrScanPrompt: "将二维码置于框内扫描",
+          invalidSessionId: "无效的 Session ID。请确保从电脑端获取正确的二维码或 Session ID。",
+          firebaseConnectionError: "无法连接到 Firebase。请检查您的网络连接和 Firebase 配置。",
+          tokenEncryptionNote: "提示：为提高安全性，实际应用中令牌应在传输和存储时加密。",
+          viewOnDesktop: "请在电脑端查看授权结果。",
+          userProfile: "用户资料",
+          name: "姓名",
+          email: "邮箱",
+          id: "用户ID",
+      };
+      const QrCodeIcon = (props) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", ...props }, React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M3.75 4.5A.75.75 0 014.5 3.75h4.5a.75.75 0 01.75.75v4.5a.75.75 0 01-.75.75h-4.5a.75.75 0 01-.75-.75v-4.5zM3.75 15A.75.75 0 014.5 14.25h4.5a.75.75 0 01.75.75v4.5a.75.75 0 01-.75.75h-4.5a.75.75 0 01-.75-.75v-4.5zM15 3.75A.75.75 0 0014.25 3h-4.5a.75.75 0 00-.75.75v4.5a.75.75 0 00.75.75h4.5a.75.75 0 00.75-.75v-4.5zM17.25 12.75a.75.75 0 01.75-.75h3a.75.75 0 01.75.75v3a.75.75 0 01-.75.75h-3a.75.75 0 01-.75-.75v-3zM15 17.25a.75.75 0 00-.75.75v1.5a.75.75 0 00.75.75h1.5a.75.75 0 00.75-.75v-1.5a.75.75 0 00-.75-.75h-1.5zM12.75 15a.75.75 0 01.75-.75h1.5a.75.75 0 01.75.75v1.5a.75.75 0 01-.75.75h-1.5a.75.75 0 01-.75-.75v-1.5zM12.75 10.5a.75.75 0 00-.75.75v3a.75.75 0 00.75.75h3a.75.75 0 00.75-.75v-3a.75.75 0 00-.75-.75h-3z" })));
+      const LoadingSpinnerIcon = (props) => (React.createElement("svg", { className: "animate-spin -ml-1 mr-3 h-5 w-5 text-sky-500", xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", ...props }, React.createElement("circle", { className: "opacity-25", cx: "12", cy: "12", r: "10", stroke: "currentColor", strokeWidth: "4" }), React.createElement("path", { className: "opacity-75", fill: "currentColor", d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" })));
+      // --- END OF INLINED constants.tsx ---
 
-        // 初始化 Firebase
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
+      // --- START OF INLINED firebaseService.ts ---
+      // Firebase is globally available from CDN script (window.firebase)
+      if (!firebase.apps.length) {
+          firebase.initializeApp(FIREBASE_CONFIG);
+      } else {
+          firebase.app(); 
+      }
+      const database = firebase.database();
 
-        // 全局變數
-        let html5QrCode;
-        let sessionData = null;
+      const getFirebaseServerTimestamp = () => {
+          return firebase.database.ServerValue.TIMESTAMP;
+      };
 
-        // 紀錄除錯資訊
-        function log(message) {
-            const debugElement = document.getElementById('debug');
-            const time = new Date().toLocaleTimeString();
-            debugElement.innerHTML += `<div>[${time}] ${message}</div>`;
-            debugElement.scrollTop = debugElement.scrollHeight;
-            console.log(message);
-        }
+      const writeAuthData = async (sessionId, data) => {
+          try {
+              const dataToWrite = {
+                  status: data.status || AuthStatus.PENDING,
+                  timestamp: getFirebaseServerTimestamp(),
+              };
+              if (data.token !== undefined) {
+                  dataToWrite.token = data.token;
+              }
+              if (data.error !== undefined) {
+                  dataToWrite.error = data.error;
+              }
+              await database.ref(`${FB_AUTH_PATH}/${sessionId}`).set(dataToWrite);
+          } catch (error) {
+              console.error("Firebase: 写入授权数据失败 (Error writing auth data to Firebase):", error);
+              throw new Error(UI_TEXT.firebaseConnectionError);
+          }
+      };
+      // deleteAuthData and listenToAuthData are not used by mobile.html but included for completeness if needed
+      // const generateSessionId is also not strictly needed here.
+      // --- END OF INLINED firebaseService.ts ---
 
-        // 更新狀態消息
-        function updateStatus(message, type) {
-            const statusContainer = document.getElementById('statusContainer');
-            const statusMessage = document.getElementById('statusMessage');
-            
-            statusMessage.textContent = message;
-            statusContainer.className = `status ${type}`;
-            log(`狀態更新: ${message}`);
-        }
+      // googleAuthService.ts is not directly used by MobilePage, it sends token to Firebase.
+      // DesktopPage uses googleAuthService.
 
-        // 初始化 QR Code 掃描器
-        function initScanner() {
-            html5QrCode = new Html5Qrcode("reader");
-        }
+      // --- START OF INLINED MobilePage.tsx ---
+      const QR_READER_ELEMENT_ID = "qr-reader";
 
-        // 開始掃描
-        function startScanner() {
-            const qrConfig = { fps: 10, qrbox: { width: 250, height: 250 } };
-            
-            html5QrCode.start(
-                { facingMode: "environment" },
-                qrConfig,
-                onScanSuccess,
-                onScanFailure
-            );
-        }
+      const MobilePage = () => {
+          const [sessionId, setSessionIdState] = useState(undefined);
+          const [inputValueSessionId, setInputValueSessionIdState] = useState('');
+          const [authInProgress, setAuthInProgressState] = useState(false);
+          const [authMessage, setAuthMessageState] = useState('');
+          const [isScanning, setIsScanningState] = useState(false);
+          const html5QrCodeRef = useRef(null);
+          const [scannerError, setScannerErrorState] = useState('');
+          const googleSignInButtonRef = useRef(null);
+          const [gisInitialized, setGisInitializedState] = useState(false);
 
-        // 掃描成功處理
-        function onScanSuccess(decodedText) {
-            try {
-                // 停止掃描
-                html5QrCode.stop();
-                
-                // 解析 QR Code 數據
-                const qrData = JSON.parse(decodedText);
-                log(`掃描成功，解析數據: ${JSON.stringify(qrData)}`);
-                
-                if (qrData.sessionId && qrData.action === 'googleAuth') {
-                    // 儲存 sessionId 到本地存儲和全局變數
-                    sessionData = qrData;
-                    localStorage.setItem('sessionData', JSON.stringify(qrData));
-                    log(`已儲存 sessionId: ${qrData.sessionId}`);
-                    
-                    updateStatus('QR Code 掃描成功! 正在啟動 Google One Tap 登入', 'success');
-                    
-                    // 隱藏掃描器，顯示 Google One Tap
-                    document.getElementById('scannerContainer').style.display = 'none';
-                    document.getElementById('googleOneTap').style.display = 'block';
-                    
-                    // 初始化 Google One Tap
-                    initializeGoogleOneTap();
-                } else {
-                    throw new Error('QR Code 格式無效');
-                }
-            } catch (error) {
-                updateStatus('掃描出錯: ' + error.message, 'error');
-                // 重新啟用掃描按鈕
-                document.getElementById('startScanBtn').disabled = false;
-            }
-        }
-
-        // 掃描失敗處理
-        function onScanFailure(error) {
-            console.warn(`掃描失敗: ${error}`);
-        }
-
-        // 初始化 Google One Tap
-        function initializeGoogleOneTap() {
-            log('初始化 Google One Tap');
-            
-            // Google One Tap 配置
-            google.accounts.id.initialize({
-                client_id: googleClientId,
-                callback: handleCredentialResponse,
-                auto_select: true,
-                cancel_on_tap_outside: false
-            });
-            
-            // 顯示 Google One Tap
-            google.accounts.id.renderButton(
-                document.getElementById('googleOneTap'),
-                { 
-                    theme: 'outline',
-                    size: 'large',
-                    text: 'signin_with',
-                    shape: 'rectangular',
-                    logo_alignment: 'center',
-                    width: 280
-                }
-            );
-            
-            // 提示 Google One Tap
-            google.accounts.id.prompt();
-        }
-
-        // 處理 Google One Tap 回調
-        function handleCredentialResponse(response) {
-            log('收到 Google One Tap 回調');
-            
-            if (response && response.credential) {
-                log('成功獲取 Google 憑證');
-                
-                // 將 JWT 令牌發送到 Firebase
-                if (sessionData && sessionData.sessionId) {
-                    sendDataToFirebase(sessionData.sessionId, response.credential);
-                } else {
-                    updateStatus('錯誤: 沒有有效的 sessionId', 'error');
-                }
-            } else {
-                log('Google One Tap 未能獲取憑證');
-                updateStatus('Google 登入失敗', 'error');
-            }
-        }
-
-        // 發送數據到 Firebase
-        function sendDataToFirebase(sessionId, credential) {
-            log(`準備發送數據到 Firebase，sessionId: ${sessionId}`);
-            if (!sessionId || !credential) {
-               log('錯誤: sessionId 或 credential 為空');
-               updateStatus('發送失敗: 缺少必要參數', 'error');
-               return Promise.reject(new Error('缺少必要參數'));
-            }
-            
-            const sessionRef = database.ref('sessions/' + sessionId);
-            const data = {
-                credential: credential,
-                token: credential,       // 添加一個別名以防 desktop.html 在檢查 token
-                timestamp: Date.now()
-            };
-            log(`要發送的數據: ${JSON.stringify({credential: credential.substring(0, 10) + '...', timestamp: data.timestamp})}`);
-            
-            return sessionRef.set(data)
-            .then(() => {
-                log(`數據成功發送到 Firebase`);
-        
-                // 確認數據是否真的寫入
-                return sessionRef.once('value');
-            })
-            .then((snapshot) => {
-                const checkData = snapshot.val();
-                if (checkData && checkData.credential) {
-                    log(`確認: 數據已成功寫入 Firebase`);
-                    updateStatus('授權成功! 已將 Google 登入憑證發送到電腦端', 'success');
-                    return true;
-                } else {
-                    throw new Error('數據似乎未成功寫入');
-                }
-            })
-            .catch((error) => {
-                log(`發送數據到 Firebase 失敗: ${error.message}`);
-                updateStatus('發送數據到電腦端失敗: ' + error.message, 'error');
-                return false;
-            });
-        }
-
-        // 初始化頁面
-        window.onload = function() {
-            log(`頁面加載完成，開始初始化...`);
-            initScanner();
-            
-            // 設置掃描按鈕事件處理
-            document.getElementById('startScanBtn').addEventListener('click', function() {
-                this.disabled = true;
-                startScanner();
-            });
-            
-            // 從 localStorage 恢復 session 數據
-            const savedSession = localStorage.getItem('sessionData');
-            if (savedSession) {
-                try {
-                    sessionData = JSON.parse(savedSession);
-                    log(`從 localStorage 恢復 sessionData: ${JSON.stringify(sessionData)}`);
-                } catch (e) {
-                    log(`恢復 sessionData 失敗: ${e.message}`);
+          // Get Session ID from URL Hash
+          useEffect(() => {
+            const hash = window.location.hash; // e.g., #SESSION_ID or #/some/path/SESSION_ID (if QR was /mobile.html#SESSION_ID)
+                                              // Desktop generates mobile.html#SESSION_ID
+            if (hash) {
+                const parts = hash.substring(1).split('/'); // Remove #
+                const idFromHash = parts[parts.length -1]; // Take last part
+                if (idFromHash && idFromHash.length > 5) { // Basic check for a plausible session ID
+                    setSessionIdState(idFromHash);
+                    setInputValueSessionIdState(idFromHash);
                 }
             }
-            
-            // 顯示除錯資訊按鈕
-            document.getElementById('showDebugBtn').addEventListener('click', function() {
-                const debugElement = document.getElementById('debug');
-                if (debugElement.style.display === 'none') {
-                    debugElement.style.display = 'block';
-                    this.textContent = '隱藏除錯資訊';
-                } else {
-                    debugElement.style.display = 'none';
-                    this.textContent = '顯示除錯資訊';
-                }
-            });
-        };
+          }, []);
+
+
+          const handleGoogleSignInCallback = async (response) => {
+              console.log("Mobile: Google Sign-In Callback Received:", response);
+              setAuthInProgressState(true);
+              setAuthMessageState(UI_TEXT.authorizing);
+              const idToken = response.credential;
+              if (!idToken) {
+                  console.error("Mobile: Google Sign-In 成功但未收到凭证 (Google Sign-In successful but no credential received).");
+                  setAuthMessageState(UI_TEXT.authErrorMobile + " (未收到凭证)");
+                  setAuthInProgressState(false);
+                  return;
+              }
+              if (!sessionId) {
+                  setAuthMessageState(UI_TEXT.invalidSessionId);
+                  setAuthInProgressState(false);
+                  return;
+              }
+              try {
+                  await writeAuthData(sessionId, {
+                      status: AuthStatus.AUTHORIZED,
+                      token: idToken,
+                      timestamp: getFirebaseServerTimestamp(),
+                  });
+                  setAuthMessageState(UI_TEXT.authSuccessMobile);
+                  if (googleSignInButtonRef.current) {
+                      googleSignInButtonRef.current.style.display = 'none';
+                  }
+              } catch (error) {
+                  console.error("Mobile: 授权失败 (Authorization failed):", error);
+                  setAuthMessageState(`${UI_TEXT.authErrorMobile} (${error.message})`);
+              } finally {
+                  setAuthInProgressState(false);
+              }
+          };
+
+          useEffect(() => {
+              if (typeof window.google !== 'undefined' && window.google.accounts && window.google.accounts.id && !gisInitialized) {
+                  try {
+                      window.google.accounts.id.initialize({
+                          client_id: GOOGLE_CLIENT_ID,
+                          callback: handleGoogleSignInCallback,
+                      });
+                      setGisInitializedState(true);
+                      console.log("Mobile: Google Identity Services 初始化成功 (initialized successfully).");
+                  } catch (error) {
+                      console.error("Mobile: Google Identity Services 初始化失败 (initialization failed):", error);
+                      setAuthMessageState("Google Sign-In 初始化失败。请确保 Google Client ID 配置正确且网络通畅。");
+                  }
+              } else if (!gisInitialized && typeof window.google === 'undefined') {
+                  console.warn("Mobile: Google Identity Services 尚未加载 (not loaded yet).");
+              }
+          }, [gisInitialized]);
+
+          useEffect(() => {
+              if (gisInitialized && googleSignInButtonRef.current && sessionId) {
+                  while (googleSignInButtonRef.current.firstChild) {
+                      googleSignInButtonRef.current.removeChild(googleSignInButtonRef.current.firstChild);
+                  }
+                  try {
+                      window.google.accounts.id.renderButton(
+                          googleSignInButtonRef.current,
+                          { theme: "outline", size: "large", type: "standard", text: "signin_with", shape: "rectangular" } 
+                      );
+                      console.log("Mobile: Google Sign-In 按钮已渲染 (button rendered).");
+                  } catch (error) {
+                      console.error("Mobile: Google Sign-In 按钮渲染失败 (button rendering failed):", error);
+                      setAuthMessageState("Google 登录按钮渲染失败。");
+                  }
+              }
+          }, [gisInitialized, sessionId]);
+
+          const startScanner = async () => {
+              setScannerErrorState('');
+              // Html5Qrcode is global
+              if (!html5QrCodeRef.current && window.Html5Qrcode) {
+                  html5QrCodeRef.current = new window.Html5Qrcode(QR_READER_ELEMENT_ID, false);
+              }
+              const qrCode = html5QrCodeRef.current;
+              if (!qrCode) {
+                  setScannerErrorState(UI_TEXT.qrScannerError + " (Library not loaded)");
+                  return;
+              }
+              // Html5QrcodeScannerState might be on Html5Qrcode.Html5QrcodeScannerState or similar
+              const scannerState = window.Html5Qrcode && window.Html5Qrcode.Html5QrcodeScannerState ? window.Html5Qrcode.Html5QrcodeScannerState.SCANNING : 2; // Default to 'SCANNING' numeric value if enum not found
+              if (qrCode.getState && qrCode.getState() === scannerState) {
+                 setIsScanningState(true);
+                 return;
+              }
+              try {
+                  await qrCode.start(
+                      { facingMode: "environment" },
+                      { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+                      (decodedText) => {
+                          try {
+                              const url = new URL(decodedText); // mobile.html#SESSION_ID
+                              const hash = url.hash;
+                              if (hash && hash.startsWith('#')) {
+                                  const extractedSessionId = hash.substring(1);
+                                  if (extractedSessionId) {
+                                      setSessionIdState(extractedSessionId);
+                                      setInputValueSessionIdState(extractedSessionId);
+                                      setAuthMessageState(`成功扫描 Session ID: ${extractedSessionId}`);
+                                      stopScanner(); 
+                                      return;
+                                  }
+                              }
+                              // Fallback for QR codes like ...#/mobile/SESSION_ID (old format)
+                              const pathParts = url.hash.split('/'); 
+                              if (pathParts.length >= 2 && pathParts[0] === '#' && pathParts[1] && pathParts[1].length > 5) { // e.g. #SESSION_ID
+                                  const extractedSessionId = pathParts[1];
+                                  setSessionIdState(extractedSessionId);
+                                  setInputValueSessionIdState(extractedSessionId);
+                                  setAuthMessageState(`成功扫描 Session ID: ${extractedSessionId}`);
+                                  stopScanner(); 
+                              } else if (pathParts.length >= 3 && pathParts[1] === 'mobile' && pathParts[2]) { // e.g. #/mobile/SESSION_ID
+                                  const extractedSessionId = pathParts[2];
+                                  setSessionIdState(extractedSessionId);
+                                  setInputValueSessionIdState(extractedSessionId);
+                                  setAuthMessageState(`成功扫描 Session ID: ${extractedSessionId}`);
+                                  stopScanner(); 
+                              } else {
+                                  setScannerErrorState("无效的二维码格式。请扫描电脑端提供的授权二维码。");
+                              }
+                          } catch (e) {
+                              setScannerErrorState("扫描到的内容不是有效的 URL 或 Session ID 格式。");
+                          }
+                      },
+                      (errorMessage) => { /* console.warn(`QR Code scan error: ${errorMessage}`); */ }
+                  );
+                  setIsScanningState(true);
+              } catch (err) {
+                  console.error("Failed to start QR scanner:", err);
+                  setScannerErrorState(`${UI_TEXT.qrScannerError} (${err.message})`);
+                  setIsScanningState(false);
+              }
+          };
+
+          const stopScanner = () => {
+              if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+                  html5QrCodeRef.current.stop()
+                      .then(() => { setIsScanningState(false); })
+                      .catch(err => console.error("Failed to stop QR scanner:", err));
+              }
+          };
+
+          useEffect(() => {
+              return () => { stopScanner(); };
+          }, []);
+
+          const handleSessionIdInputChange = (e) => {
+              const newId = e.target.value;
+              setInputValueSessionIdState(newId);
+          };
+          
+          const handleUseEnteredSessionId = () => {
+              if (inputValueSessionId.trim()) {
+                  setSessionIdState(inputValueSessionId.trim());
+                  setAuthMessageState(`已设置 Session ID: ${inputValueSessionId.trim()}`);
+              } else {
+                  setAuthMessageState("请输入有效的 Session ID。");
+              }
+          };
+
+          return (
+            React.createElement("div", { className: "container mx-auto max-w-md bg-white p-6 sm:p-8 shadow-xl rounded-lg" },
+              React.createElement("h2", { className: "text-2xl font-semibold text-center text-sky-700 mb-6" }, MOBILE_PAGE_TITLE),
+              !sessionId && (
+                React.createElement(React.Fragment, null,
+                  React.createElement("div", { className: "mb-6 p-4 border border-dashed border-sky-300 rounded-lg bg-sky-50" },
+                    React.createElement("p", { className: "text-md text-slate-700 mb-3" }, UI_TEXT.scanQrOnComputer),
+                    React.createElement("button", {
+                      onClick: isScanning ? stopScanner : startScanner,
+                      disabled: authInProgress,
+                      className: `w-full flex items-center justify-center px-4 py-3 mb-3 font-semibold rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-opacity-75 ${isScanning ? 'bg-amber-500 hover:bg-amber-600 text-white focus:ring-amber-400' : 'bg-sky-500 hover:bg-sky-600 text-white focus:ring-sky-400'}`
+                    },
+                      React.createElement(QrCodeIcon, { className: "w-5 h-5 mr-2" }),
+                      isScanning ? UI_TEXT.stopScan : UI_TEXT.startScan
+                    ),
+                    React.createElement("div", { id: QR_READER_ELEMENT_ID, className: "w-full h-auto aspect-square border border-gray-300 rounded bg-gray-100 overflow-hidden" },
+                      !isScanning && React.createElement("div", { className: "flex items-center justify-center h-full text-gray-400" }, UI_TEXT.qrScanPrompt)
+                    ),
+                    scannerError && React.createElement("p", { className: "text-red-500 text-sm mt-2" }, scannerError)
+                  ),
+                  React.createElement("p", { className: "text-center text-slate-600 my-4" }, "-- ", UI_TEXT.orEnterSessionId, " --"),
+                  React.createElement("div", { className: "mb-6" },
+                    React.createElement("label", { htmlFor: "sessionIdInput", className: "block text-sm font-medium text-slate-700 mb-1" }, UI_TEXT.sessionIdInputLabel),
+                    React.createElement("div", { className: "flex space-x-2" },
+                      React.createElement("input", {
+                        type: "text",
+                        id: "sessionIdInput",
+                        value: inputValueSessionId,
+                        onChange: handleSessionIdInputChange,
+                        placeholder: "粘贴或输入 Session ID",
+                        className: "flex-grow p-3 border border-slate-300 rounded-lg shadow-sm focus:ring-sky-500 focus:border-sky-500",
+                        disabled: authInProgress
+                      }),
+                      React.createElement("button", {
+                        onClick: handleUseEnteredSessionId,
+                        disabled: authInProgress || !inputValueSessionId,
+                        className: "px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-lg transition-colors disabled:opacity-50"
+                      }, "使用")
+                    )
+                  )
+                )
+              ),
+              sessionId && (
+                React.createElement("div", { className: "mt-6 flex flex-col items-center" },
+                  !gisInitialized && React.createElement("p", {className: "text-amber-600 text-sm mb-2"}, "Google 登录服务加载中..."),
+                  React.createElement("div", { ref: googleSignInButtonRef, id: "google-signin-button-container", className: `${!gisInitialized || authInProgress ? 'opacity-50 cursor-not-allowed' : ''}` }),
+                  authInProgress && React.createElement(LoadingSpinnerIcon, { className: "w-8 h-8 my-3 text-sky-500" })
+                )
+              ),
+              authMessage && (
+                React.createElement("p", { className: `mt-4 text-center text-md ${authMessage.includes('失败') || authMessage.includes('无效') || authMessage.includes('错误') ? 'text-red-600' : 'text-green-600'}` }, authMessage)
+              ),
+              (authMessage === UI_TEXT.authSuccessMobile || (authMessage.startsWith(UI_TEXT.authErrorMobile))) &&
+                React.createElement("p", { className: "text-center text-sm text-slate-500 mt-2" }, UI_TEXT.viewOnDesktop)
+            )
+          );
+      };
+      // --- END OF INLINED MobilePage.tsx ---
+
+      // Wrapper App component
+      const AppMobile = () => {
+        return (
+          React.createElement("div", { className: "min-h-screen bg-slate-100 text-slate-800" },
+            React.createElement("header", { className: "bg-sky-600 text-white p-4 shadow-md" },
+              React.createElement("h1", { className: "text-2xl font-semibold text-center" }, APP_TITLE)
+            ),
+            React.createElement("main", { className: "p-4 sm:p-6" },
+              React.createElement(MobilePage, null)
+            ),
+            React.createElement("footer", { className: "text-center p-4 text-sm text-slate-500 mt-8" },
+              React.createElement("p", null, "\u00a9 ", new Date().getFullYear(), " 跨设备授权演示 (Cross-Device Auth Demo)")
+            )
+          )
+        );
+      };
+
+      const rootElement = document.getElementById('root');
+      if (!rootElement) {
+        throw new Error("找不到根元素。(Could not find root element to mount to)");
+      }
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(
+        React.createElement(StrictMode, null, React.createElement(AppMobile, null))
+      );
     </script>
 </body>
 </html>
