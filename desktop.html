@@ -1,137 +1,58 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>電腦端 - Google 整合應用</title>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>跨设备 Google 授权 - 电脑端</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDKs (Compat version) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database-compat.js"></script>
+    <!-- Google Identity Services (GIS) client library - not strictly needed for desktop but for consistency -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.1.0",
+    "react-dom/client": "https://esm.sh/react-dom@^19.1.0/client",
+    "qrcode.react": "https://esm.sh/qrcode.react@^4.2.0"
+  }
+}
+</script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            text-align: center;
-        }
-        .container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 80vh;
-        }
-        #qrcode {
-            margin: 20px 0;
-        }
-        .status {
-            margin: 20px 0;
-            padding: 10px;
-            border-radius: 4px;
-        }
-        .waiting {
-            background-color: #f0f0f0;
-        }
-        .success {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        .error {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-        button {
-            padding: 10px 20px;
-            background-color: #4285f4;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 5px;
-        }
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        #debug {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border: 1px solid #ddd;
-            text-align: left;
-            font-family: monospace;
-            max-height: 150px;
-            overflow-y: auto;
-            display: none;
-        }
-        .user-profile {
-            display: none;
-            margin: 20px 0;
-            text-align: center;
-        }
-        .profile-image {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            margin-bottom: 10px;
-        }
-        .user-actions {
-            margin-top: 20px;
-        }
-        .welcome-message {
-            margin-top: 20px;
-            padding: 20px;
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            max-width: 600px;
-            text-align: center;
-            display: none;
-        }
+      body { margin: 0; font-family: sans-serif; }
+      .animate-fadeIn { animation: fadeIn 0.5s ease-in-out; }
+      @keyframes fadeIn { 
+        from { opacity: 0; transform: translateY(10px); } 
+        to { opacity: 1; transform: translateY(0); } 
+      }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>電腦端 - Google 整合應用</h1>
-        <div id="statusContainer" class="status waiting">
-            <p id="statusMessage">請使用手機掃描下方 QR Code</p>
-        </div>
-        
-        <!-- 初始畫面：QR Code 掃描區 -->
-        <div id="qrcode-container">
-            <div id="qrcode"></div>
-        </div>
-        
-        <!-- 用戶登入成功後顯示資訊 -->
-        <div id="user-profile" class="user-profile">
-            <img id="profile-image" class="profile-image" src="" alt="用戶頭像">
-            <h2 id="user-name">用戶名稱</h2>
-            <p id="user-email">用戶郵箱</p>
-        </div>
-        
-        <!-- 歡迎訊息 -->
-        <div id="welcome-message" class="welcome-message">
-            <h2>登入成功！</h2>
-            <p>您已成功使用 Google 帳號完成登入。</p>
-            <p>您現在可以使用完整的 Google 服務，無需再次輸入密碼。</p>
-            <p>請點擊下方按鈕開啟 Google 服務。</p>
-            <button onclick="window.open('https://www.google.com', '_blank')">開啟 Google</button>
-        </div>
-        
-        <!-- 用戶操作按鈕 -->
-        <div id="user-actions" class="user-actions" style="display:none;">
-            <button id="logoutBtn" onclick="logout()">登出</button>
-        </div>
-        
-        <div id="debug"></div>
-        <button id="showDebugBtn" style="margin-top: 20px; background-color: #6c757d;">顯示除錯資訊</button>
-    </div>
+<body class="bg-slate-100">
+    <div id="root"></div>
 
-    <script>
-        // Firebase 配置
-        const firebaseConfig = {
+    <script type="module">
+      import React, { useState, useEffect, useCallback, StrictMode } from 'react';
+      import ReactDOM from 'react-dom/client';
+      import { QRCodeCanvas } from 'qrcode.react';
+
+      // --- START OF INLINED types.ts ---
+      var AuthStatus;
+      (function (AuthStatus) {
+          AuthStatus["PENDING"] = "pending"; // 等待授权
+          AuthStatus["AUTHORIZED"] = "authorized"; // 已授权 (手机端完成)
+          AuthStatus["TOKEN_RECEIVED"] = "token_received"; // 令牌已接收 (桌面端收到)
+          AuthStatus["FETCHING_USER"] = "fetching_user"; // 获取用户信息中
+          AuthStatus["USER_INFO_LOADED"] = "user_info_loaded"; // 用户信息已加载
+          AuthStatus["ERROR"] = "error"; // 发生错误
+          AuthStatus["LOGGED_OUT"] = "logged_out"; // 已登出
+          AuthStatus["SESSION_EXPIRED"] = "session_expired"; // 会话过期
+          AuthStatus["INITIALIZING"] = "initializing"; // 初始化中
+      })(AuthStatus || (AuthStatus = {}));
+      // --- END OF INLINED types.ts ---
+
+      // --- START OF INLINED constants.tsx ---
+      const FIREBASE_CONFIG = {
             apiKey: "AIzaSyArF8xncLwA3osSQ_o6yWIyuOc0TMrXRTY",
             authDomain: "yingpei--login.firebaseapp.com",
             databaseURL: "https://yingpei--login-default-rtdb.firebaseio.com",
@@ -140,264 +61,397 @@
             messagingSenderId: "261477282402",
             appId: "1:261477282402:web:557f0be058e07cd642173b",
             measurementId: "G-EB9PR17TJL"
-        };
-        
-        // Google API 客戶端 ID
-        const googleClientId = "130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com";
 
-        // 初始化 Firebase
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-        
-        // 全局變數
-        let googleCredential = null;
-        let googleUserInfo = null;
+      };
+      const GOOGLE_CLIENT_ID = "130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com"; // <--- 在此修改 Google Client ID
+      const FB_AUTH_PATH = 'authorizations';
+      const APP_TITLE = "跨设备 Google 授权";
+      const DESKTOP_PAGE_TITLE = "电脑端操作界面";
+      
+      const UI_TEXT = {
+          scanQrCode: "请使用手机扫描下方二维码进行 Google 授权：",
+          authStatus: "授权状态",
+          statusInitializing: "初始化中...",
+          statusPending: "等待手机端授权...",
+          statusTokenReceived: "令牌已接收，验证中...",
+          statusAuthorized: "授权成功",
+          statusFetchingUser: "正在获取用户 Google 资料...",
+          statusUserInfoLoaded: "用户信息加载成功",
+          statusError: "授权失败",
+          statusLoggedOut: "已登出。请重新授权。",
+          statusSessionExpired: "会话已过期或无效，请重新授权。",
+          fetchUserInfoError: "获取用户信息失败，请检查令牌或网络连接。",
+          googleServices: "Google 服务",
+          logout: "退出登录",
+          reauthorize: "重新授权",
+          scanQrOnComputer: "请扫描电脑屏幕上的二维码",
+          orEnterSessionId: "或手动输入 Session ID (如果二维码无法扫描)",
+          sessionIdInputLabel: "Session ID",
+          startScan: "开始扫描二维码",
+          stopScan: "停止扫描",
+          loginWithGoogle: "使用 Google 登录授权",
+          authorizing: "正在授权...",
+          authSuccessMobile: "授权成功！请返回电脑端查看。",
+          authErrorMobile: "授权失败，请重试。",
+          qrScannerError: "二维码扫描器初始化失败。",
+          qrScanPrompt: "将二维码置于框内扫描",
+          invalidSessionId: "无效的 Session ID。请确保从电脑端获取正确的二维码或 Session ID。",
+          firebaseConnectionError: "无法连接到 Firebase。请检查您的网络连接和 Firebase 配置。",
+          tokenEncryptionNote: "提示：为提高安全性，实际应用中令牌应在传输和存储时加密。",
+          viewOnDesktop: "请在电脑端查看授权结果。",
+          userProfile: "用户资料",
+          name: "姓名",
+          email: "邮箱",
+          id: "用户ID",
+      };
 
-        // 紀錄除錯資訊
-        function log(message) {
-            const debugElement = document.getElementById('debug');
-            const time = new Date().toLocaleTimeString();
-            debugElement.innerHTML += `<div>[${time}] ${message}</div>`;
-            debugElement.scrollTop = debugElement.scrollHeight;
-            console.log(message);
-        }
+      const GmailIcon = (props) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", ...props }, React.createElement("path", { d: "M2.003 5.5A2.5 2.5 0 0 1 4.5 3h15A2.5 2.5 0 0 1 22 5.5v1A2.5 2.5 0 0 1 19.5 9h-15A2.5 2.5 0 0 1 2 6.5v-1Z" }), React.createElement("path", { d: "M2.003 9.5A2.5 2.5 0 0 1 4.5 7h15a2.5 2.5 0 0 1 2.5 2.5v7A2.5 2.5 0 0 1 19.5 21h-15A2.5 2.5 0 0 1 2 18.5v-9ZM12 10.75a.75.75 0 0 0-.621.344l-3.156 4.975A2.502 2.502 0 0 1 4.5 17h15a2.5 2.5 0 0 1-3.723-1.93l-3.156-4.976A.75.75 0 0 0 12 10.75Z" })));
+      const DriveIcon = (props) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", ...props }, React.createElement("path", { d: "M7.73 2.004A2.25 2.25 0 0 1 9.312 1.5h5.376a2.25 2.25 0 0 1 1.582.504l6.001 3.999a2.25 2.25 0 0 1 .825 1.913l-1.604 9.622a2.25 2.25 0 0 1-2.164 1.962H4.672a2.25 2.25 0 0 1-2.164-1.962L.904 7.92a2.25 2.25 0 0 1 .825-1.913L7.73 2.004ZM9.938 3H9.31C8.79 3 8.41 3.174 8.16 3.423l-6 4c-.25.167-.345.37-.307.558L3.42 17.52c.039.233.23.402.468.402h16.224c.237 0 .43-.169.468-.402l1.567-9.539c.038-.188-.057-.391-.307-.558l-6-4C15.59 3.174 15.209 3 14.689 3h-.625L9.937 3Z" }), React.createElement("path", { d: "m13.082 10.22 4.58-2.748L12 3.186 6.338 7.472l4.58 2.748a2.25 2.25 0 0 0 2.164 0Z" })));
+      const CalendarIcon = (props) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", ...props }, React.createElement("path", { fillRule: "evenodd", d: "M5.25 2.25A.75.75 0 0 1 6 3v.75h12V3a.75.75 0 0 1 1.5 0v.75h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V6.75a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9H5.25V18a1.5 1.5 0 0 0 1.5 1.5h10.5a1.5 1.5 0 0 0 1.5-1.5v-6.75Z", clipRule: "evenodd" })));
+      const DocsIcon = (props) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", ...props }, React.createElement("path", { d: "M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a.375.375 0 0 1-.375-.375V6.75A3.75 3.75 0 0 0 10.5 3H5.625Zm1.5 10.5a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5h-6Z" }), React.createElement("path", { d: "M12.75 3.065A2.25 2.25 0 0 1 15 5.25v1.585c0 .414.336.75.75.75h1.585A2.25 2.25 0 0 1 19.5 9.75v.75H15a.75.75 0 0 0-.75.75v3.375c0 .414.336.75.75.75h2.25v1.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V9A.75.75 0 0 0 12 8.25H9.75A2.25 2.25 0 0 1 7.5 6V5.25A2.25 2.25 0 0 1 9.75 3h3Z" })));
+      const LogoutIcon = (props) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", ...props }, React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" })));
+      const RefreshIcon = (props) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", ...props }, React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" })));
+      const QrCodeIcon = (props) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", ...props }, React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M3.75 4.5A.75.75 0 014.5 3.75h4.5a.75.75 0 01.75.75v4.5a.75.75 0 01-.75.75h-4.5a.75.75 0 01-.75-.75v-4.5zM3.75 15A.75.75 0 014.5 14.25h4.5a.75.75 0 01.75.75v4.5a.75.75 0 01-.75.75h-4.5a.75.75 0 01-.75-.75v-4.5zM15 3.75A.75.75 0 0014.25 3h-4.5a.75.75 0 00-.75.75v4.5a.75.75 0 00.75.75h4.5a.75.75 0 00.75-.75v-4.5zM17.25 12.75a.75.75 0 01.75-.75h3a.75.75 0 01.75.75v3a.75.75 0 01-.75.75h-3a.75.75 0 01-.75-.75v-3zM15 17.25a.75.75 0 00-.75.75v1.5a.75.75 0 00.75.75h1.5a.75.75 0 00.75-.75v-1.5a.75.75 0 00-.75-.75h-1.5zM12.75 15a.75.75 0 01.75-.75h1.5a.75.75 0 01.75.75v1.5a.75.75 0 01-.75.75h-1.5a.75.75 0 01-.75-.75v-1.5zM12.75 10.5a.75.75 0 00-.75.75v3a.75.75 0 00.75.75h3a.75.75 0 00.75-.75v-3a.75.75 0 00-.75-.75h-3z" })));
+      const LoadingSpinnerIcon = (props) => (React.createElement("svg", { className: "animate-spin -ml-1 mr-3 h-5 w-5 text-sky-500", xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", ...props }, React.createElement("circle", { className: "opacity-25", cx: "12", cy: "12", r: "10", stroke: "currentColor", strokeWidth: "4" }), React.createElement("path", { className: "opacity-75", fill: "currentColor", d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" })));
+      // --- END OF INLINED constants.tsx ---
 
-        // 生成唯一會話 ID
-        function generateSessionId() {
-            return 'session_' + Math.random().toString(36).substring(2, 15) + 
-                   Math.random().toString(36).substring(2, 15);
-        }
+      // --- START OF INLINED firebaseService.ts ---
+      // Firebase is globally available from CDN script (window.firebase)
+      if (!firebase.apps.length) {
+          firebase.initializeApp(FIREBASE_CONFIG);
+      } else {
+          firebase.app(); 
+      }
+      const database = firebase.database();
 
-        // 生成 QR Code
-        function generateQRCode(text) {
-            const typeNumber = 0;
-            const errorCorrectionLevel = 'L';
-            const qr = qrcode(typeNumber, errorCorrectionLevel);
-            qr.addData(text);
-            qr.make();
-            document.getElementById('qrcode').innerHTML = qr.createImgTag(10);
-        }
+      const getFirebaseServerTimestamp = () => {
+          return firebase.database.ServerValue.TIMESTAMP;
+      };
 
-        // 更新狀態消息
-        function updateStatus(message, type) {
-            const statusContainer = document.getElementById('statusContainer');
-            const statusMessage = document.getElementById('statusMessage');
-            
-            statusMessage.textContent = message;
-            statusContainer.className = `status ${type}`;
-            log(`狀態更新: ${message}`);
-        }
+      const writeAuthData = async (sessionId, data) => {
+          try {
+              const dataToWrite = {
+                  status: data.status || AuthStatus.PENDING,
+                  timestamp: getFirebaseServerTimestamp(),
+              };
+              if (data.token !== undefined) {
+                  dataToWrite.token = data.token;
+              }
+              if (data.error !== undefined) {
+                  dataToWrite.error = data.error;
+              }
+              await database.ref(`${FB_AUTH_PATH}/${sessionId}`).set(dataToWrite);
+          } catch (error) {
+              console.error("Firebase: 写入授权数据失败 (Error writing auth data to Firebase):", error);
+              throw new Error(UI_TEXT.firebaseConnectionError);
+          }
+      };
 
-        // 監聽 Firebase 數據變化
-        function listenForAuthToken(sessionId) {
-            const sessionRef = database.ref('sessions/' + sessionId);
-            log(`開始監聽 Firebase 路徑: sessions/${sessionId}`);
-            // 增加 Firebase 連接狀態監聽
-            const connectedRef = database.ref('.info/connected');
-            connectedRef.on('value', (snap) => {
-                if (snap.val() === true) {
-                    log('已連接到 Firebase 資料庫');
-                } else {
-                    log('未連接到 Firebase 資料庫');
-                }
-            });            
-            sessionRef.on('value', (snapshot) => {
-                log(`收到 Firebase 事件，數據是否存在: ${snapshot.exists()}`);
-                const data = snapshot.val();
-                
-                if (data) {
-                    log(`收到 Firebase 數據，數據結構: ${JSON.stringify(Object.keys(data))}`);
-            
-                    if (data.credential) {
-                        log(`成功接收到 Google 憑證: ${data.credential.substring(0, 10)}...`);
-                        // 收到憑證，處理 Google 登入
-                        googleCredential = data.credential;
-                        updateStatus('授權成功! 已從手機接收到 Google 登入憑證', 'success');
-                
-                        // 處理 Google 登入
-                        handleGoogleSignIn(googleCredential);
-                
-                        // 授權完成後，刪除 Firebase 中的數據 (安全性考量)
-                        sessionRef.remove().then(() => {
-                            log('已刪除 Firebase 中的 session 數據');
-                        }).catch(error => {
-                            log(`刪除 session 數據時出錯: ${error.message}`);
-                        });
-                    } else {
-                        log('收到的數據中沒有 credential 欄位');
-                    }
-                } else {
-                    log('Firebase 回調無數據');
-                }
-            }, (error) => {
-                log(`Firebase 監聽失敗: ${error.message}`);
-            });
-        }
-        
-        // 處理 Google 登入
-        function handleGoogleSignIn(credential) {
-            log('開始處理 Google 登入');
-            
-            // 解析 JWT
-            const payload = parseJwt(credential);
-            if (payload) {
-                log(`成功解析 JWT，使用者資訊: ${JSON.stringify(payload)}`);
-                
-                // 保存用戶資訊
-                googleUserInfo = {
-                    name: payload.name,
-                    email: payload.email,
-                    picture: payload.picture
-                };
-                
-                // 顯示用戶資訊
-                displayUserProfile(googleUserInfo);
-                
-                // 顯示歡迎訊息
-                document.getElementById('welcome-message').style.display = 'block';
-                
-                // 顯示用戶操作按鈕
-                document.getElementById('user-actions').style.display = 'block';
-                
-                // 隱藏 QR Code
-                document.getElementById('qrcode-container').style.display = 'none';
-                
-                // 在當前頁面自動登入 Google
-                handleGoogleAutoSignIn(credential);
-            } else {
-                log('JWT 解析失敗');
-                updateStatus('處理 Google 登入憑證失敗', 'error');
-            }
-        }
-        
-        // 解析 JWT
-        function parseJwt(token) {
-            try {
-                const base64Url = token.split('.')[1];
-                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                }).join(''));
-                return JSON.parse(jsonPayload);
-            } catch (error) {
-                log(`解析 JWT 出錯: ${error.message}`);
-                return null;
-            }
-        }
-        
-        // 自動登入 Google
-        function handleGoogleAutoSignIn(credential) {
-            log('嘗試自動登入 Google');
-            
-            // 創建一個隱藏的 iframe 來完成 Google 自動登入
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            
-            // 設置 Google 登入 URL
-            iframe.src = 'https://accounts.google.com/gsi/iframe?client_id=' + googleClientId + '&credential=' + credential;
-            
-            document.body.appendChild(iframe);
-            
-            // 設置超時，確保處理完成
-            setTimeout(() => {
-                document.body.removeChild(iframe);
-                log('Google 自動登入處理完成');
-            }, 5000);
-        }
-        
-        // 顯示用戶資訊
-        function displayUserProfile(userData) {
-            const userProfile = document.getElementById('user-profile');
-            const profileImage = document.getElementById('profile-image');
-            const userName = document.getElementById('user-name');
-            const userEmail = document.getElementById('user-email');
-            
-            // 設置用戶資訊
-            profileImage.src = userData.picture || 'https://via.placeholder.com/80';
-            userName.textContent = userData.name || '未知用戶';
-            userEmail.textContent = userData.email || '未知郵箱';
-            
-            // 顯示用戶資訊
-            userProfile.style.display = 'block';
-        }
-        
-        // 登出功能
-        function logout() {
-            log('用戶登出');
-            
-            // 清除本地存儲的憑證
-            googleCredential = null;
-            googleUserInfo = null;
-            
-            // 重置 UI
-            document.getElementById('user-profile').style.display = 'none';
-            document.getElementById('welcome-message').style.display = 'none';
-            document.getElementById('user-actions').style.display = 'none';
-            document.getElementById('qrcode-container').style.display = 'block';
-            
-            // 更新狀態
-            updateStatus('您已登出。請重新掃描 QR Code 以登入。', 'waiting');
-            
-            // 重新生成 QR Code
-            initializePage();
-            
-            // 嘗試登出 Google
-            const logoutUrl = 'https://accounts.google.com/logout';
-            const logoutWindow = window.open(logoutUrl, '_blank', 'width=500,height=500');
-            setTimeout(() => {
-                if (logoutWindow) {
-                    logoutWindow.close();
-                }
-            }, 2000);
-        }
+      const listenToAuthData = (sessionId, callback) => {
+          const path = `${FB_AUTH_PATH}/${sessionId}`;
+          const ref = database.ref(path);
+          const listener = ref.on('value', (snapshot) => {
+              const data = snapshot.val();
+              callback(data);
+          }, (error) => {
+              console.error("Firebase: 监听授权数据失败 (Error listening to auth data):", error);
+              callback({ status: AuthStatus.ERROR, error: UI_TEXT.firebaseConnectionError });
+          });
+          return () => ref.off('value', listener);
+      };
 
-        // 初始化頁面
-        function initializePage() {
-            const sessionId = generateSessionId();
-            const qrData = JSON.stringify({
-                sessionId: sessionId,
-                action: 'googleAuth'
-            });
-            
-            // 儲存 sessionId 到本地存儲
-            localStorage.setItem('currentSessionId', sessionId);
-            
-            log(`初始化頁面，產生 sessionId: ${sessionId}`);
-            generateQRCode(qrData);
-            updateStatus('請使用手機掃描 QR Code 以進行 Google 授權', 'waiting');
-            listenForAuthToken(sessionId);
-        }
-        
-        // 頁面載入
-        window.onload = function() {
-            // 測試 Firebase 連接
-            log('測試 Firebase 連接...');
-            const testRef = database.ref('test');
-            testRef.set({
-                timestamp: Date.now(),
-                message: 'Test connection'
-            })
-            .then(() => {
-                log('Firebase 連接測試成功');
-            })
-            .catch(error => {
-                log(`Firebase 連接測試失敗: ${error.message}`);
-            });
-    
-            initializePage();
-            
-            // 顯示除錯資訊按鈕
-            document.getElementById('showDebugBtn').addEventListener('click', function() {
-                const debugElement = document.getElementById('debug');
-                if (debugElement.style.display === 'none') {
-                    debugElement.style.display = 'block';
-                    this.textContent = '隱藏除錯資訊';
-                } else {
-                    debugElement.style.display = 'none';
-                    this.textContent = '顯示除錯資訊';
-                }
-            });
-        };
+      const deleteAuthData = async (sessionId) => {
+          try {
+              await database.ref(`${FB_AUTH_PATH}/${sessionId}`).remove();
+          } catch (error) {
+              console.error("Firebase: 删除授权数据失败 (Error deleting auth data from Firebase):", error);
+          }
+      };
+
+      const generateSessionId = () => {
+          return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+              const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+              return v.toString(16);
+          });
+      };
+      // --- END OF INLINED firebaseService.ts ---
+
+      // --- START OF INLINED googleAuthService.ts ---
+      const parseIdToken = (idToken) => {
+          try {
+              const base64Url = idToken.split('.')[1]; 
+              if (!base64Url) return null;
+              const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+              const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                  return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+              }).join(''));
+              const parsed = JSON.parse(jsonPayload);
+              if (!parsed.sub || !parsed.email) {
+                  console.error("ID token missing 'sub' or 'email' claims.");
+                  return null;
+              }
+              return {
+                  id: parsed.sub,
+                  name: parsed.name || parsed.given_name,
+                  email: parsed.email,
+                  picture: parsed.picture,
+              };
+          } catch (e) {
+              console.error("GoogleAuthService: ID 令牌解析失败 (Failed to parse ID token):", e);
+              return null;
+          }
+      };
+      const fetchUserProfile = async (idToken) => {
+          console.log("GoogleAuthService: 尝试从 ID 令牌解析用户资料 (Attempting to parse user profile from ID token):", idToken ? idToken.substring(0,30) + "..." : "null");
+          await new Promise(resolve => setTimeout(resolve, 100));
+          const profile = parseIdToken(idToken);
+          if (!profile) {
+              console.error("GoogleAuthService: 无效的 ID 令牌或解析失败 (Invalid ID token or failed to parse).");
+              throw new Error(UI_TEXT.fetchUserInfoError + " (无效的 ID 令牌或解析错误)");
+          }
+          console.log("GoogleAuthService: 从 ID 令牌成功提取用户资料 (Successfully extracted user profile from ID token):", profile);
+          return profile;
+      };
+      // --- END OF INLINED googleAuthService.ts ---
+
+      // --- START OF INLINED DesktopPage.tsx ---
+      const DesktopPage = () => {
+          const [sessionId, setSessionIdState] = useState('');
+          const [authStatus, setAuthStatusState] = useState(AuthStatus.INITIALIZING);
+          const [userProfile, setUserProfileState] = useState(null);
+          const [errorMessage, setErrorMessageState] = useState('');
+          const [qrCodeValue, setQrCodeValueState] = useState('');
+
+          const googleServices = [
+              { id: 'gmail', name: 'Gmail', url: 'https://mail.google.com/', icon: React.createElement(GmailIcon, { className: "w-10 h-10" }) },
+              { id: 'drive', name: 'Drive 云端硬盘', url: 'https://drive.google.com/', icon: React.createElement(DriveIcon, { className: "w-10 h-10" }) },
+              { id: 'calendar', name: 'Calendar 日历', url: 'https://calendar.google.com/', icon: React.createElement(CalendarIcon, { className: "w-10 h-10" }) },
+              { id: 'docs', name: 'Docs 文档', url: 'https://docs.google.com/', icon: React.createElement(DocsIcon, { className: "w-10 h-10" }) },
+          ];
+
+          const initializeNewSession = useCallback(() => {
+              if (sessionId) {
+                  deleteAuthData(sessionId).catch(err => console.warn("未能清理旧会话 (Could not clean up old session):", err));
+              }
+              const newSessionId = generateSessionId();
+              setSessionIdState(newSessionId);
+              setUserProfileState(null);
+              setErrorMessageState('');
+              setAuthStatusState(AuthStatus.PENDING);
+              
+              // Construct mobile URL carefully for static HTML deployment
+              // Assuming mobile.html is in the same directory or a known relative path.
+              // For GitHub Pages, if desktop.html is at root, mobile.html is also at root.
+              const currentPath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
+              const mobileUrl = `${window.location.origin}${currentPath}/mobile.html#${newSessionId}`;
+              setQrCodeValueState(mobileUrl);
+
+              console.log(`Desktop: 新会话 (New session) ID: ${newSessionId}, QR URL: ${mobileUrl}`);
+              writeAuthData(newSessionId, { status: AuthStatus.PENDING, timestamp: getFirebaseServerTimestamp() })
+                  .catch(error => {
+                      console.error("Desktop: 初始化 Firebase 会话失败 (Failed to initialize Firebase session):", error);
+                      setErrorMessageState(UI_TEXT.firebaseConnectionError);
+                      setAuthStatusState(AuthStatus.ERROR);
+                  });
+              return newSessionId;
+          }, [sessionId]); 
+
+          useEffect(() => {
+              initializeNewSession(); 
+          }, []);
+
+          useEffect(() => {
+              if (!sessionId || authStatus === AuthStatus.INITIALIZING) {
+                  return; 
+              }
+              console.log(`Desktop: 开始监听会话 (Start listening for session) ID: ${sessionId}`);
+              const unsubscribe = listenToAuthData(sessionId, async (data) => {
+                  if (!data) {
+                      if (authStatus !== AuthStatus.PENDING && authStatus !== AuthStatus.LOGGED_OUT) {
+                          console.warn(`Desktop: Firebase 数据为空，会话 (Firebase data became null for session) ID ${sessionId}. 可能已过期或被删除 (Possibly expired or deleted).`);
+                          setAuthStatusState(AuthStatus.SESSION_EXPIRED);
+                          setErrorMessageState(UI_TEXT.statusSessionExpired);
+                      }
+                      return;
+                  }
+                  console.log("Desktop: 收到 Firebase 更新 (Received Firebase update):", data);
+                  setErrorMessageState(data.error || '');
+                  switch (data.status) {
+                      case AuthStatus.AUTHORIZED:
+                          if (data.token) {
+                              setAuthStatusState(AuthStatus.TOKEN_RECEIVED);
+                              try {
+                                  setAuthStatusState(AuthStatus.FETCHING_USER);
+                                  const profile = await fetchUserProfile(data.token);
+                                  setUserProfileState(profile);
+                                  setAuthStatusState(AuthStatus.USER_INFO_LOADED);
+                                  setErrorMessageState(''); 
+                              } catch (error) {
+                                  console.error("Desktop: 获取用户资料失败 (Failed to fetch user profile):", error);
+                                  setErrorMessageState(String(error) || UI_TEXT.fetchUserInfoError);
+                                  setAuthStatusState(AuthStatus.ERROR);
+                                  setUserProfileState(null);
+                              }
+                          } else {
+                              console.error("Desktop: 状态为 'authorized' 但令牌缺失 (Status is 'authorized' but token is missing).");
+                              setErrorMessageState("授权数据不完整 (Incomplete authorization data).");
+                              setAuthStatusState(AuthStatus.ERROR);
+                          }
+                          break;
+                      case AuthStatus.PENDING:
+                          if (authStatus !== AuthStatus.USER_INFO_LOADED && authStatus !== AuthStatus.FETCHING_USER && authStatus !== AuthStatus.TOKEN_RECEIVED) {
+                              setAuthStatusState(AuthStatus.PENDING);
+                          }
+                          break;
+                      case AuthStatus.ERROR:
+                          setAuthStatusState(AuthStatus.ERROR);
+                          setUserProfileState(null);
+                          break;
+                      default:
+                          console.log(`Desktop: 未处理的授权状态 (Unhandled auth status): ${data.status}`);
+                          if (!userProfile) {
+                              setAuthStatusState(AuthStatus.PENDING); 
+                          }
+                          break;
+                  }
+              });
+              return () => {
+                  console.log(`Desktop: 停止监听会话 (Stop listening for session) ID: ${sessionId}`);
+                  unsubscribe();
+              };
+          }, [sessionId, authStatus, userProfile]); 
+
+          const handleLogoutOrReauthorize = () => {
+              console.log("Desktop: 用户登出/重新授权 (User logout/re-authorize)");
+              setAuthStatusState(AuthStatus.LOGGED_OUT); 
+              initializeNewSession(); 
+          };
+          
+          const getStatusMessage = () => {
+              if (errorMessage) return `${UI_TEXT.statusError}: ${errorMessage}`;
+              switch (authStatus) {
+                  case AuthStatus.INITIALIZING: return UI_TEXT.statusInitializing;
+                  case AuthStatus.PENDING: return UI_TEXT.statusPending;
+                  case AuthStatus.TOKEN_RECEIVED: return UI_TEXT.statusTokenReceived;
+                  // case AuthStatus.AUTHORIZED: return UI_TEXT.statusAuthorized; // This state is transient on desktop
+                  case AuthStatus.FETCHING_USER: return UI_TEXT.statusFetchingUser;
+                  case AuthStatus.USER_INFO_LOADED: return UI_TEXT.statusUserInfoLoaded;
+                  case AuthStatus.LOGGED_OUT: return UI_TEXT.statusLoggedOut;
+                  case AuthStatus.SESSION_EXPIRED: return UI_TEXT.statusSessionExpired;
+                  case AuthStatus.ERROR: return `${UI_TEXT.statusError}${errorMessage ? ': ' + errorMessage : ''}`;
+                  default: return UI_TEXT.statusPending;
+              }
+          };
+
+        return (
+          React.createElement("div", { className: "container mx-auto max-w-2xl bg-white p-6 sm:p-8 shadow-xl rounded-lg" },
+            React.createElement("h2", { className: "text-2xl font-semibold text-center text-sky-700 mb-6" }, DESKTOP_PAGE_TITLE),
+            authStatus !== AuthStatus.USER_INFO_LOADED && (
+              React.createElement("div", { className: "mb-8 p-6 border border-dashed border-sky-300 rounded-lg bg-sky-50" },
+                React.createElement("p", { className: "text-md text-slate-700 mb-4" }, UI_TEXT.scanQrCode),
+                qrCodeValue && QRCodeCanvas ? (
+                  React.createElement("div", { className: "qr-code-container bg-white p-4 border rounded-md shadow-sm inline-block" },
+                    React.createElement(QRCodeCanvas, { value: qrCodeValue, size: 200, level: "M" })
+                  )
+                ) : (
+                  React.createElement("div", { className: "w-[200px] h-[200px] bg-gray-200 flex items-center justify-center rounded-md mx-auto" },
+                    React.createElement(QrCodeIcon, { className: "w-16 h-16 text-gray-400" }),
+                    !QRCodeCanvas && React.createElement("p", {className: "text-xs text-red-500 mt-1"}, "QR Code component failed to load.")
+                  )
+                ),
+                React.createElement("p", { className: "mt-4 text-xs text-gray-500 break-all" }, "Session URL: ", qrCodeValue || '生成中 (Generating)...'),
+                React.createElement("p", { className: "mt-2 text-xs text-gray-500" }, UI_TEXT.tokenEncryptionNote)
+              )
+            ),
+            React.createElement("div", { className: "mb-6 p-4 border rounded-lg", role: "status", "aria-live": "polite" },
+              React.createElement("h3", { className: "text-lg font-medium text-slate-700 mb-2" }, UI_TEXT.authStatus),
+              React.createElement("div", { className: "flex items-center" },
+                (authStatus === AuthStatus.PENDING || authStatus === AuthStatus.FETCHING_USER || authStatus === AuthStatus.INITIALIZING) && (
+                  React.createElement(LoadingSpinnerIcon, { className: "w-5 h-5 mr-2 text-sky-500" })
+                ),
+                React.createElement("p", { className: `text-md ${authStatus === AuthStatus.ERROR || authStatus === AuthStatus.SESSION_EXPIRED ? 'text-red-600' : authStatus === AuthStatus.USER_INFO_LOADED ? 'text-green-600' : 'text-slate-600'}` },
+                  getStatusMessage()
+                )
+              )
+            ),
+            authStatus === AuthStatus.USER_INFO_LOADED && userProfile && (
+              React.createElement("div", { className: "animate-fadeIn p-6 border border-green-300 rounded-lg bg-green-50" },
+                React.createElement("h3", { className: "text-xl font-semibold text-green-700 mb-4" }, UI_TEXT.userProfile),
+                React.createElement("div", { className: "flex items-center space-x-4 mb-6" },
+                  userProfile.picture && (
+                    React.createElement("img", { src: userProfile.picture, alt: "User profile", className: "w-20 h-20 rounded-full shadow-md border-2 border-white" })
+                  ),
+                  React.createElement("div", null,
+                    React.createElement("p", { className: "text-lg" }, React.createElement("span", { className: "font-medium" }, UI_TEXT.name, ":"), " ", userProfile.name || 'N/A'),
+                    React.createElement("p", { className: "text-lg" }, React.createElement("span", { className: "font-medium" }, UI_TEXT.email, ":"), " ", userProfile.email || 'N/A'),
+                    userProfile.id && React.createElement("p", { className: "text-sm text-slate-500" }, React.createElement("span", { className: "font-medium" }, UI_TEXT.id, ":"), " ", userProfile.id)
+                  )
+                ),
+                React.createElement("h3", { className: "text-xl font-semibold text-sky-700 mb-4 mt-8" }, UI_TEXT.googleServices),
+                React.createElement("div", { className: "grid grid-cols-2 sm:grid-cols-4 gap-4" },
+                  googleServices.map(service => (
+                    React.createElement("a", {
+                      key: service.id,
+                      href: service.url,
+                      target: "_blank",
+                      rel: "noopener noreferrer",
+                      className: "service-icon flex flex-col items-center p-4 bg-white hover:bg-sky-50 border border-slate-200 rounded-lg shadow-sm transition-all hover:shadow-md"
+                    },
+                      React.cloneElement(service.icon, { className: 'w-10 h-10 mb-2 text-sky-600' }),
+                      React.createElement("span", { className: "text-sm font-medium text-slate-700" }, service.name)
+                    )
+                  ))
+                )
+              )
+            ),
+            React.createElement("div", { className: "mt-8 flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-4" },
+              React.createElement("button", {
+                onClick: handleLogoutOrReauthorize,
+                className: "w-full sm:w-auto flex items-center justify-center px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75"
+              },
+                React.createElement(LogoutIcon, { className: "w-5 h-5 mr-2" }),
+                authStatus === AuthStatus.USER_INFO_LOADED ? UI_TEXT.logout : UI_TEXT.reauthorize
+              ),
+              (authStatus === AuthStatus.ERROR || authStatus === AuthStatus.SESSION_EXPIRED) && (
+                React.createElement("button", {
+                  onClick: handleLogoutOrReauthorize,
+                  className: "w-full sm:w-auto flex items-center justify-center px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-opacity-75"
+                },
+                  React.createElement(RefreshIcon, { className: "w-5 h-5 mr-2" }),
+                  UI_TEXT.reauthorize
+                )
+              )
+            )
+          )
+        );
+      };
+      // --- END OF INLINED DesktopPage.tsx ---
+
+      // Wrapper App component
+      const AppDesktop = () => {
+        return (
+          React.createElement("div", { className: "min-h-screen bg-slate-100 text-slate-800" },
+            React.createElement("header", { className: "bg-sky-600 text-white p-4 shadow-md" },
+              React.createElement("h1", { className: "text-2xl font-semibold text-center" }, APP_TITLE)
+            ),
+            React.createElement("main", { className: "p-4 sm:p-6" },
+              React.createElement(DesktopPage, null)
+            ),
+            React.createElement("footer", { className: "text-center p-4 text-sm text-slate-500 mt-8" },
+              React.createElement("p", null, "\u00a9 ", new Date().getFullYear(), " 跨设备授权演示 (Cross-Device Auth Demo)")
+            )
+          )
+        );
+      };
+
+      const rootElement = document.getElementById('root');
+      if (!rootElement) {
+        throw new Error("找不到根元素。(Could not find root element to mount to)");
+      }
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(
+        React.createElement(StrictMode, null, React.createElement(AppDesktop, null))
+      );
     </script>
 </body>
 </html>
