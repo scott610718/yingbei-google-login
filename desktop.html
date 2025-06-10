@@ -10,214 +10,130 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 900px;
+            font-family: Arial, sans-serif;
+            max-width: 800px;
             margin: 0 auto;
             padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
+            text-align: center;
         }
         .container {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 80vh;
-        }
-        h1 {
-            color: #4285f4;
-            margin-bottom: 30px;
-            font-size: 2.5em;
-            text-align: center;
+            height: 80vh;
         }
         #qrcode {
             margin: 20px 0;
-            padding: 20px;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
         }
         .status {
             margin: 20px 0;
-            padding: 15px 25px;
-            border-radius: 10px;
-            font-size: 1.1em;
-            font-weight: 500;
-            max-width: 600px;
-            text-align: center;
+            padding: 10px;
+            border-radius: 4px;
         }
         .waiting {
-            background: linear-gradient(45deg, #f8f9fa, #e9ecef);
-            color: #495057;
-            border: 2px solid #dee2e6;
+            background-color: #f0f0f0;
         }
         .success {
-            background: linear-gradient(45deg, #d4edda, #c3e6cb);
+            background-color: #d4edda;
             color: #155724;
-            border: 2px solid #c3e6cb;
         }
         .error {
-            background: linear-gradient(45deg, #f8d7da, #f5c6cb);
+            background-color: #f8d7da;
             color: #721c24;
-            border: 2px solid #f5c6cb;
         }
         button {
-            padding: 12px 30px;
-            background: linear-gradient(45deg, #4285f4, #34a853);
+            padding: 10px 20px;
+            background-color: #4285f4;
             color: white;
             border: none;
-            border-radius: 25px;
+            border-radius: 4px;
             cursor: pointer;
             font-size: 16px;
-            font-weight: 600;
-            margin: 10px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            margin: 5px;
         }
         button:disabled {
-            background: #cccccc;
+            background-color: #cccccc;
             cursor: not-allowed;
-            transform: none;
-        }
-        .google-services {
-            display: none;
-            margin: 20px 0;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 15px;
-            width: 100%;
-            max-width: 600px;
-        }
-        .service-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-        .service-item {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            transition: transform 0.3s ease;
-            cursor: pointer;
-        }
-        .service-item:hover {
-            transform: translateY(-5px);
-        }
-        .service-icon {
-            font-size: 2em;
-            margin-bottom: 10px;
         }
         #debug {
             margin-top: 20px;
-            padding: 15px;
-            background: #2d3748;
-            color: #e2e8f0;
-            border-radius: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
             text-align: left;
-            font-family: 'Courier New', monospace;
-            max-height: 200px;
+            font-family: monospace;
+            max-height: 150px;
             overflow-y: auto;
             display: none;
-            width: 100%;
-            max-width: 700px;
         }
         .user-profile {
             display: none;
             margin: 20px 0;
             text-align: center;
-            padding: 20px;
-            background: linear-gradient(45deg, #fff, #f8f9fa);
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
         }
         .profile-image {
-            width: 100px;
-            height: 100px;
+            width: 80px;
+            height: 80px;
             border-radius: 50%;
-            margin-bottom: 15px;
-            border: 4px solid #4285f4;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            margin-bottom: 10px;
+        }
+        .user-actions {
+            margin-top: 20px;
         }
         .welcome-message {
             margin-top: 20px;
-            padding: 25px;
-            background: linear-gradient(45deg, #e3f2fd, #bbdefb);
-            border-radius: 15px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
             max-width: 600px;
             text-align: center;
             display: none;
-            border: 2px solid #2196f3;
         }
-        .loading {
+        .service-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .service-button {
+            background-color: #34a853;
+            padding: 12px 24px;
+            text-decoration: none;
+            color: white;
+            border-radius: 4px;
+            display: inline-block;
+            transition: background-color 0.3s;
+        }
+        .service-button:hover {
+            background-color: #2d8f47;
+        }
+        #authFrame {
             display: none;
-            margin: 20px 0;
+            width: 1px;
+            height: 1px;
+            border: none;
         }
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #4285f4;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .auth-status {
-            margin: 15px 0;
+        .login-status {
+            margin: 10px 0;
             padding: 10px;
-            border-radius: 8px;
-            display: none;
-        }
-        .auth-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .auth-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            background-color: #e3f2fd;
+            color: #1565c0;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🔐 Google 整合登入系統</h1>
-        
+        <h1>電腦端 - Google 整合應用</h1>
         <div id="statusContainer" class="status waiting">
             <p id="statusMessage">請使用手機掃描下方 QR Code</p>
-        </div>
-        
-        <!-- 載入動畫 -->
-        <div id="loading" class="loading">
-            <div class="spinner"></div>
-            <p>處理登入中...</p>
         </div>
         
         <!-- 初始畫面：QR Code 掃描區 -->
         <div id="qrcode-container">
             <div id="qrcode"></div>
-            <p style="color: #666; margin-top: 15px;">使用手機掃描 QR Code 完成 Google 登入</p>
-        </div>
-        
-        <!-- 驗證狀態 -->
-        <div id="auth-status" class="auth-status">
-            <p id="auth-message"></p>
         </div>
         
         <!-- 用戶登入成功後顯示資訊 -->
@@ -225,67 +141,40 @@
             <img id="profile-image" class="profile-image" src="" alt="用戶頭像">
             <h2 id="user-name">用戶名稱</h2>
             <p id="user-email">用戶郵箱</p>
-            <p style="color: #666; margin-top: 10px;">登入時間: <span id="login-time"></span></p>
+        </div>
+        
+        <!-- 登入狀態指示器 -->
+        <div id="login-status" class="login-status" style="display: none;">
+            <p id="login-status-text">正在建立 Google 登入連線...</p>
         </div>
         
         <!-- 歡迎訊息 -->
         <div id="welcome-message" class="welcome-message">
-            <h2>🎉 登入成功！</h2>
+            <h2>登入成功！</h2>
             <p>您已成功使用 Google 帳號完成登入。</p>
-            <p>現在可以存取 Google 服務，享受無縫的使用體驗。</p>
-        </div>
-        
-        <!-- Google 服務面板 -->
-        <div id="google-services" class="google-services">
-            <h3 style="text-align: center; margin-bottom: 20px;">📱 Google 服務</h3>
-            <div class="service-grid">
-                <div class="service-item" onclick="openGoogleService('https://www.google.com')">
-                    <div class="service-icon">🔍</div>
-                    <h4>Google 搜尋</h4>
-                    <p>開始搜尋</p>
-                </div>
-                <div class="service-item" onclick="openGoogleService('https://mail.google.com')">
-                    <div class="service-icon">✉️</div>
-                    <h4>Gmail</h4>
-                    <p>查看郵件</p>
-                </div>
-                <div class="service-item" onclick="openGoogleService('https://drive.google.com')">
-                    <div class="service-icon">💾</div>
-                    <h4>Google Drive</h4>
-                    <p>雲端儲存</p>
-                </div>
-                <div class="service-item" onclick="openGoogleService('https://calendar.google.com')">
-                    <div class="service-icon">📅</div>
-                    <h4>Google 日曆</h4>
-                    <p>管理行程</p>
-                </div>
-                <div class="service-item" onclick="openGoogleService('https://docs.google.com')">
-                    <div class="service-icon">📝</div>
-                    <h4>Google 文件</h4>
-                    <p>建立文件</p>
-                </div>
-                <div class="service-item" onclick="openGoogleService('https://photos.google.com')">
-                    <div class="service-icon">📸</div>
-                    <h4>Google 相簿</h4>
-                    <p>管理相片</p>
-                </div>
+            <p>請點擊下方按鈕開啟 Google 服務。</p>
+            
+            <div class="service-buttons">
+                <a href="#" class="service-button" onclick="openGoogleService('https://www.google.com')">Google 搜尋</a>
+                <a href="#" class="service-button" onclick="openGoogleService('https://mail.google.com')">Gmail</a>
+                <a href="#" class="service-button" onclick="openGoogleService('https://drive.google.com')">Google Drive</a>
+                <a href="#" class="service-button" onclick="openGoogleService('https://calendar.google.com')">Google Calendar</a>
+                <a href="#" class="service-button" onclick="openGoogleService('https://docs.google.com')">Google Docs</a>
+                <a href="#" class="service-button" onclick="openGoogleService('https://photos.google.com')">Google Photos</a>
             </div>
         </div>
         
         <!-- 用戶操作按鈕 -->
-        <div id="user-actions" style="display:none; margin-top: 20px;">
-            <button onclick="refreshLogin()" style="background: linear-gradient(45deg, #ff9800, #f57c00);">
-                🔄 重新整理登入
-            </button>
-            <button onclick="logout()" style="background: linear-gradient(45deg, #f44336, #d32f2f);">
-                🚪 登出
-            </button>
+        <div id="user-actions" class="user-actions" style="display:none;">
+            <button id="logoutBtn" onclick="logout()">登出</button>
+            <button onclick="testGoogleAuth()">測試 Google 連線</button>
         </div>
         
+        <!-- 隱藏的 iframe 用於建立 Google 認證 -->
+        <iframe id="authFrame" name="authFrame"></iframe>
+        
         <div id="debug"></div>
-        <button id="showDebugBtn" style="margin-top: 20px; background: linear-gradient(45deg, #6c757d, #5a6268);">
-            🔧 顯示除錯資訊
-        </button>
+        <button id="showDebugBtn" style="margin-top: 20px; background-color: #6c757d;">顯示除錯資訊</button>
     </div>
 
     <script>
@@ -311,36 +200,32 @@
         // 全局變數
         let googleCredential = null;
         let googleUserInfo = null;
-        let currentSessionId = null;
-        let authWindow = null;
+        let googleAccessToken = null;
+        let isGoogleAuthenticated = false;
 
         // 紀錄除錯資訊
         function log(message) {
             const debugElement = document.getElementById('debug');
             const time = new Date().toLocaleTimeString();
-            debugElement.innerHTML += `<div style="margin-bottom: 5px; padding: 5px; background: rgba(255,255,255,0.1); border-radius: 3px;">[${time}] ${message}</div>`;
+            debugElement.innerHTML += `<div>[${time}] ${message}</div>`;
             debugElement.scrollTop = debugElement.scrollHeight;
             console.log(message);
         }
 
         // 生成唯一會話 ID
         function generateSessionId() {
-            return 'session_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
+            return 'session_' + Math.random().toString(36).substring(2, 15) + 
+                   Math.random().toString(36).substring(2, 15);
         }
 
         // 生成 QR Code
         function generateQRCode(text) {
-            try {
-                const typeNumber = 0;
-                const errorCorrectionLevel = 'L';
-                const qr = qrcode(typeNumber, errorCorrectionLevel);
-                qr.addData(text);
-                qr.make();
-                document.getElementById('qrcode').innerHTML = qr.createImgTag(8);
-                log('QR Code 生成成功');
-            } catch (error) {
-                log(`QR Code 生成失敗: ${error.message}`);
-            }
+            const typeNumber = 0;
+            const errorCorrectionLevel = 'L';
+            const qr = qrcode(typeNumber, errorCorrectionLevel);
+            qr.addData(text);
+            qr.make();
+            document.getElementById('qrcode').innerHTML = qr.createImgTag(10);
         }
 
         // 更新狀態消息
@@ -353,24 +238,14 @@
             log(`狀態更新: ${message}`);
         }
 
-        // 顯示驗證狀態
-        function showAuthStatus(message, isSuccess) {
-            const authStatus = document.getElementById('auth-status');
-            const authMessage = document.getElementById('auth-message');
+        // 更新登入狀態
+        function updateLoginStatus(message, show = true) {
+            const statusElement = document.getElementById('login-status');
+            const statusText = document.getElementById('login-status-text');
             
-            authMessage.textContent = message;
-            authStatus.className = `auth-status ${isSuccess ? 'auth-success' : 'auth-error'}`;
-            authStatus.style.display = 'block';
-            
-            // 5秒後自動隱藏
-            setTimeout(() => {
-                authStatus.style.display = 'none';
-            }, 5000);
-        }
-
-        // 顯示載入動畫
-        function showLoading(show) {
-            document.getElementById('loading').style.display = show ? 'block' : 'none';
+            statusText.textContent = message;
+            statusElement.style.display = show ? 'block' : 'none';
+            log(`登入狀態: ${message}`);
         }
 
         // 監聽 Firebase 數據變化
@@ -378,123 +253,341 @@
             const sessionRef = database.ref('sessions/' + sessionId);
             log(`開始監聽 Firebase 路徑: sessions/${sessionId}`);
             
-            // Firebase 連接狀態監聽
             const connectedRef = database.ref('.info/connected');
             connectedRef.on('value', (snap) => {
                 if (snap.val() === true) {
-                    log('✅ 已連接到 Firebase 資料庫');
-                    showAuthStatus('已連接到服務器', true);
+                    log('已連接到 Firebase 資料庫');
                 } else {
-                    log('❌ 未連接到 Firebase 資料庫');
-                    showAuthStatus('與服務器連接中斷', false);
+                    log('未連接到 Firebase 資料庫');
                 }
-            });
+            });            
             
-            // 監聽 session 數據變化
             sessionRef.on('value', (snapshot) => {
+                log(`收到 Firebase 事件，數據是否存在: ${snapshot.exists()}`);
                 const data = snapshot.val();
                 
-                if (data && data.credential) {
-                    log(`✅ 成功接收到 Google 憑證`);
-                    showLoading(true);
-                    
-                    // 收到憑證，處理 Google 登入
-                    googleCredential = data.credential;
-                    updateStatus('正在處理 Google 登入...', 'success');
-                    
-                    // 處理 Google 登入
-                    handleGoogleSignIn(googleCredential);
-                    
-                    // 清理 Firebase 數據
-                    setTimeout(() => {
+                if (data) {
+                    log(`收到 Firebase 數據，數據結構: ${JSON.stringify(Object.keys(data))}`);
+            
+                    if (data.credential) {
+                        log(`成功接收到 Google 憑證: ${data.credential.substring(0, 10)}...`);
+                        googleCredential = data.credential;
+                        updateStatus('授權成功! 已從手機接收到 Google 登入憑證', 'success');
+                        updateLoginStatus('正在處理 Google 認證...');
+                
+                        // 處理 Google 登入
+                        handleGoogleSignIn(googleCredential);
+                
+                        // 授權完成後，刪除 Firebase 中的數據
                         sessionRef.remove().then(() => {
-                            log('🗑️ 已清理 Firebase session 數據');
+                            log('已刪除 Firebase 中的 session 數據');
                         }).catch(error => {
-                            log(`❌ 清理 session 數據失敗: ${error.message}`);
+                            log(`刪除 session 數據時出錯: ${error.message}`);
                         });
-                    }, 2000);
+                    } else {
+                        log('收到的數據中沒有 credential 欄位');
+                    }
+                } else {
+                    log('Firebase 回調無數據');
                 }
             }, (error) => {
-                log(`❌ Firebase 監聽失敗: ${error.message}`);
-                showAuthStatus('監聽服務器失敗', false);
+                log(`Firebase 監聽失敗: ${error.message}`);
             });
         }
         
         // 處理 Google 登入
         function handleGoogleSignIn(credential) {
-            log('🔐 開始處理 Google 登入');
+            log('開始處理 Google 登入');
             
-            try {
-                // 解析 JWT
-                const payload = parseJwt(credential);
-                if (payload) {
-                    log(`✅ 成功解析用戶資訊: ${payload.name} (${payload.email})`);
-                    
-                    // 保存用戶資訊
-                    googleUserInfo = {
-                        name: payload.name,
-                        email: payload.email,
-                        picture: payload.picture,
-                        sub: payload.sub,
-                        loginTime: new Date().toLocaleString('zh-TW')
-                    };
-                    
-                    // 保存到 localStorage
-                    localStorage.setItem('googleUserInfo', JSON.stringify(googleUserInfo));
-                    localStorage.setItem('googleCredential', credential);
-                    
-                    // 初始化 Google Identity Services
-                    initializeGoogleIdentityServices(credential);
-                    
-                    // 顯示成功界面
-                    showSuccessUI();
-                    
-                    showAuthStatus('Google 登入成功！', true);
-                } else {
-                    throw new Error('JWT 解析失敗');
-                }
-            } catch (error) {
-                log(`❌ 處理 Google 登入失敗: ${error.message}`);
-                updateStatus('登入處理失敗: ' + error.message, 'error');
-                showAuthStatus('登入處理失敗', false);
-            } finally {
-                showLoading(false);
+            // 解析 JWT
+            const payload = parseJwt(credential);
+            if (payload) {
+                log(`成功解析 JWT，使用者資訊: ${JSON.stringify(payload)}`);
+                
+                // 保存用戶資訊
+                googleUserInfo = {
+                    name: payload.name,
+                    email: payload.email,
+                    picture: payload.picture,
+                    sub: payload.sub
+                };
+                
+                // 顯示用戶資訊
+                displayUserProfile(googleUserInfo);
+                
+                // 建立 Google 認證會話
+                establishGoogleSession(credential);
+                
+                // 顯示歡迎訊息
+                document.getElementById('welcome-message').style.display = 'block';
+                
+                // 顯示用戶操作按鈕
+                document.getElementById('user-actions').style.display = 'block';
+                
+                // 隱藏 QR Code
+                document.getElementById('qrcode-container').style.display = 'none';
+                
+            } else {
+                log('JWT 解析失敗');
+                updateStatus('處理 Google 登入憑證失敗', 'error');
+                updateLoginStatus('Google 認證失敗', false);
             }
         }
-
-        // 初始化 Google Identity Services
-        function initializeGoogleIdentityServices(credential) {
-            log('🔧 初始化 Google Identity Services');
+        
+        // 建立 Google 認證會話
+        function establishGoogleSession(credential) {
+            updateLoginStatus('建立 Google 認證會話...');
             
-            try {
-                // 等待 Google API 載入完成
-                if (typeof google !== 'undefined' && google.accounts) {
+            // 方法1: 使用 Google Identity Services
+            if (typeof google !== 'undefined' && google.accounts) {
+                try {
                     google.accounts.id.initialize({
                         client_id: googleClientId,
-                        callback: handleGoogleCallback,
-                        auto_select: false,
-                        cancel_on_tap_outside: false
+                        callback: handleGoogleCallback
                     });
                     
-                    // 設置憑證
-                    google.accounts.id.storeCredential({
-                        credential: credential
-                    });
+                    // 嘗試用接收到的憑證進行認證
+                    handleGoogleCallback({credential: credential});
                     
-                    log('✅ Google Identity Services 初始化成功');
-                } else {
-                    log('⚠️ Google API 尚未載入完成');
+                } catch (error) {
+                    log(`Google Identity Services 初始化失敗: ${error.message}`);
                 }
-            } catch (error) {
-                log(`❌ Google Identity Services 初始化失敗: ${error.message}`);
+            }
+            
+            // 方法2: 創建認證 cookie
+            createAuthCookie(credential);
+            
+            // 方法3: 使用 iframe 進行跨域認證
+            performIframeAuth(credential);
+            
+            setTimeout(() => {
+                updateLoginStatus('Google 認證會話已建立', false);
+                isGoogleAuthenticated = true;
+                log('Google 認證流程完成');
+            }, 3000);
+        }
+        
+        // 處理 Google 回調
+        function handleGoogleCallback(response) {
+            if (response.credential) {
+                log('Google 回調成功處理');
+                googleAccessToken = response.credential;
+                
+                // 嘗試設置認證狀態
+                try {
+                    // 將認證信息存儲到 sessionStorage
+                    sessionStorage.setItem('google_auth_token', response.credential);
+                    sessionStorage.setItem('google_user_info', JSON.stringify(googleUserInfo));
+                    log('認證信息已存儲到 sessionStorage');
+                } catch (error) {
+                    log(`存儲認證信息失敗: ${error.message}`);
+                }
             }
         }
-
-        // Google 回調處理
-        function handleGoogleCallback(response) {
-            log('📞 收到 Google 回調');
-            if (response.credential) {
-                log('✅ Google 回調成功');
+        
+        // 創建認證 cookie
+        function createAuthCookie(credential) {
+            try {
+                // 嘗試設置 Google 相關的 cookie
+                const cookieNames = [
+                    'google_auth_token',
+                    'google_session',
+                    'gsi_credential'
+                ];
+                
+                cookieNames.forEach(name => {
+                    document.cookie = `${name}=${credential}; path=/; domain=.google.com; secure; samesite=none`;
+                    document.cookie = `${name}=${credential}; path=/; secure; samesite=lax`;
+                });
+                
+                log('已嘗試設置 Google 認證 cookie');
+            } catch (error) {
+                log(`設置認證 cookie 失敗: ${error.message}`);
+            }
+        }
+        
+        // 使用 iframe 進行跨域認證
+        function performIframeAuth(credential) {
+            const iframe = document.getElementById('authFrame');
+            
+            // 創建一個包含認證信息的頁面
+            const authHtml = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <script src="https://accounts.google.com/gsi/client"></script>
+                </head>
+                <body>
+                    <script>
+                        // 嘗試設置 Google 認證
+                        try {
+                            if (typeof google !== 'undefined' && google.accounts) {
+                                google.accounts.id.initialize({
+                                    client_id: '${googleClientId}'
+                                });
+                                
+                                // 嘗試直接設置認證狀態
+                                google.accounts.id.disableAutoSelect();
+                                google.accounts.id.storeCredential({
+                                    credential: '${credential}'
+                                });
+                            }
+                            
+                            // 設置本地存儲
+                            localStorage.setItem('google_auth', '${credential}');
+                            sessionStorage.setItem('google_auth', '${credential}');
+                            
+                            // 通知父頁面
+                            parent.postMessage({type: 'auth_complete', success: true}, '*');
+                            
+                        } catch (error) {
+                            parent.postMessage({type: 'auth_complete', success: false, error: error.message}, '*');
+                        }
+                    </script>
+                </body>
+                </html>
+            `;
+            
+            // 使用 data URL 載入認證頁面
+            iframe.src = 'data:text/html;base64,' + btoa(unescape(encodeURIComponent(authHtml)));
+            
+            // 監聽來自 iframe 的消息
+            window.addEventListener('message', function(event) {
+                if (event.data.type === 'auth_complete') {
+                    if (event.data.success) {
+                        log('iframe 認證成功');
+                    } else {
+                        log(`iframe 認證失敗: ${event.data.error}`);
+                    }
+                }
+            });
+        }
+        
+        // 開啟 Google 服務
+        function openGoogleService(url) {
+            updateLoginStatus('正在開啟 Google 服務...');
+            
+            // 創建一個新窗口
+            const googleWindow = window.open('about:blank', '_blank', 'width=1200,height=800');
+            
+            if (googleWindow) {
+                // 嘗試在新窗口中設置認證狀態
+                try {
+                    // 方法1: 直接設置認證頁面
+                    const authPage = createAuthenticatedPage(url);
+                    googleWindow.document.write(authPage);
+                    googleWindow.document.close();
+                    
+                    log(`已開啟 Google 服務: ${url}`);
+                    updateLoginStatus('', false);
+                    
+                } catch (error) {
+                    log(`開啟 Google 服務失敗，使用備用方法: ${error.message}`);
+                    
+                    // 備用方法: 直接跳轉
+                    googleWindow.location.href = url;
+                    updateLoginStatus('', false);
+                }
+            } else {
+                log('無法開啟新窗口，可能被瀏覽器阻擋');
+                updateLoginStatus('開啟服務失敗，請檢查彈出視窗設定', false);
+            }
+        }
+        
+        // 創建已認證的頁面
+        function createAuthenticatedPage(targetUrl) {
+            return `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>正在載入 Google 服務...</title>
+                    <script src="https://accounts.google.com/gsi/client"></script>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            text-align: center;
+                            padding: 50px;
+                            background-color: #f8f9fa;
+                        }
+                        .loading {
+                            font-size: 18px;
+                            color: #4285f4;
+                        }
+                        .spinner {
+                            border: 4px solid #f3f3f3;
+                            border-top: 4px solid #4285f4;
+                            border-radius: 50%;
+                            width: 40px;
+                            height: 40px;
+                            animation: spin 1s linear infinite;
+                            margin: 20px auto;
+                        }
+                        @keyframes spin {
+                            0% { transform: rotate(0deg); }
+                            100% { transform: rotate(360deg); }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        正在載入 Google 服務...
+                    </div>
+                    
+                    <script>
+                        // 設置認證信息
+                        try {
+                            localStorage.setItem('google_auth_token', '${googleCredential}');
+                            sessionStorage.setItem('google_auth_token', '${googleCredential}');
+                            sessionStorage.setItem('google_user_info', '${JSON.stringify(googleUserInfo).replace(/'/g, "\\'")}');
+                            
+                            // 設置 cookie
+                            document.cookie = 'google_auth_token=${googleCredential}; path=/; secure; samesite=lax';
+                            document.cookie = 'gsi_credential=${googleCredential}; path=/; domain=.google.com; secure; samesite=none';
+                            
+                            // 初始化 Google Identity Services
+                            if (typeof google !== 'undefined' && google.accounts) {
+                                google.accounts.id.initialize({
+                                    client_id: '${googleClientId}',
+                                    auto_select: true
+                                });
+                            }
+                            
+                        } catch (error) {
+                            console.log('認證設置失敗:', error);
+                        }
+                        
+                        // 延遲跳轉到目標 URL
+                        setTimeout(function() {
+                            window.location.href = '${targetUrl}';
+                        }, 2000);
+                    </script>
+                </body>
+                </html>
+            `;
+        }
+        
+        // 測試 Google 認證
+        function testGoogleAuth() {
+            log('開始測試 Google 認證狀態');
+            updateLoginStatus('正在測試 Google 連線...');
+            
+            const testResults = {
+                credential: !!googleCredential,
+                userInfo: !!googleUserInfo,
+                localStorage: !!localStorage.getItem('google_auth_token'),
+                sessionStorage: !!sessionStorage.getItem('google_auth_token'),
+                authenticated: isGoogleAuthenticated
+            };
+            
+            log(`認證測試結果: ${JSON.stringify(testResults)}`);
+            
+            if (testResults.credential && testResults.userInfo) {
+                updateLoginStatus('Google 認證狀態正常', false);
+                updateStatus('Google 認證測試通過', 'success');
+            } else {
+                updateLoginStatus('Google 認證狀態異常', false);
+                updateStatus('Google 認證測試失敗，請重新登入', 'error');
             }
         }
         
@@ -508,27 +601,9 @@
                 }).join(''));
                 return JSON.parse(jsonPayload);
             } catch (error) {
-                log(`❌ 解析 JWT 出錯: ${error.message}`);
+                log(`解析 JWT 出錯: ${error.message}`);
                 return null;
             }
-        }
-        
-        // 顯示成功界面
-        function showSuccessUI() {
-            // 隱藏 QR Code 和載入動畫
-            document.getElementById('qrcode-container').style.display = 'none';
-            showLoading(false);
-            
-            // 顯示用戶資訊
-            displayUserProfile(googleUserInfo);
-            
-            // 顯示歡迎訊息和服務面板
-            document.getElementById('welcome-message').style.display = 'block';
-            document.getElementById('google-services').style.display = 'block';
-            document.getElementById('user-actions').style.display = 'block';
-            
-            // 更新狀態
-            updateStatus('登入成功！您現在可以使用 Google 服務', 'success');
         }
         
         // 顯示用戶資訊
@@ -537,176 +612,101 @@
             const profileImage = document.getElementById('profile-image');
             const userName = document.getElementById('user-name');
             const userEmail = document.getElementById('user-email');
-            const loginTime = document.getElementById('login-time');
             
-            // 設置用戶資訊
-            profileImage.src = userData.picture || 'https://via.placeholder.com/100';
+            profileImage.src = userData.picture || 'https://via.placeholder.com/80';
             userName.textContent = userData.name || '未知用戶';
             userEmail.textContent = userData.email || '未知郵箱';
-            loginTime.textContent = userData.loginTime || '未知時間';
             
-            // 顯示用戶資訊
             userProfile.style.display = 'block';
-        }
-
-        // 開啟 Google 服務
-        function openGoogleService(url) {
-            log(`🌐 嘗試開啟 Google 服務: ${url}`);
-            
-            try {
-                // 創建一個新的認證窗口
-                const authUrl = `${url}?authuser=${encodeURIComponent(googleUserInfo?.email || '')}`;
-                
-                // 開啟新分頁
-                const newWindow = window.open(authUrl, '_blank', 'noopener,noreferrer');
-                
-                if (newWindow) {
-                    log('✅ 成功開啟新分頁');
-                    showAuthStatus('正在開啟 Google 服務...', true);
-                    
-                    // 嘗試注入認證信息
-                    setTimeout(() => {
-                        try {
-                            if (googleCredential) {
-                                // 在新窗口中設置認證
-                                newWindow.postMessage({
-                                    type: 'GOOGLE_AUTH',
-                                    credential: googleCredential,
-                                    userInfo: googleUserInfo
-                                }, '*');
-                            }
-                        } catch (error) {
-                            log(`⚠️ 無法向新窗口發送認證信息: ${error.message}`);
-                        }
-                    }, 1000);
-                } else {
-                    log('❌ 彈出視窗被封鎖');
-                    showAuthStatus('彈出視窗被封鎖，請允許彈出視窗', false);
-                }
-            } catch (error) {
-                log(`❌ 開啟 Google 服務失敗: ${error.message}`);
-                showAuthStatus('開啟服務失敗', false);
-            }
-        }
-
-        // 重新整理登入
-        function refreshLogin() {
-            log('🔄 重新整理登入狀態');
-            
-            if (googleCredential) {
-                showLoading(true);
-                
-                // 重新處理登入
-                setTimeout(() => {
-                    handleGoogleSignIn(googleCredential);
-                    showAuthStatus('登入狀態已重新整理', true);
-                }, 1000);
-            } else {
-                showAuthStatus('沒有可用的登入憑證', false);
-            }
         }
         
         // 登出功能
         function logout() {
-            log('🚪 用戶登出');
+            log('用戶登出');
             
-            // 清除數據
+            // 清除所有認證信息
             googleCredential = null;
             googleUserInfo = null;
-            localStorage.removeItem('googleUserInfo');
-            localStorage.removeItem('googleCredential');
-            localStorage.removeItem('currentSessionId');
+            googleAccessToken = null;
+            isGoogleAuthenticated = false;
+            
+            // 清除本地存儲
+            localStorage.removeItem('google_auth_token');
+            localStorage.removeItem('google_user_info');
+            sessionStorage.removeItem('google_auth_token');
+            sessionStorage.removeItem('google_user_info');
+            
+            // 清除 cookie
+            document.cookie = 'google_auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            document.cookie = 'google_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
             
             // 重置 UI
             document.getElementById('user-profile').style.display = 'none';
             document.getElementById('welcome-message').style.display = 'none';
-            document.getElementById('google-services').style.display = 'none';
             document.getElementById('user-actions').style.display = 'none';
+            document.getElementById('login-status').style.display = 'none';
             document.getElementById('qrcode-container').style.display = 'block';
             
-            // 重新初始化
+            updateStatus('您已登出。請重新掃描 QR Code 以登入。', 'waiting');
+            
+            // 重新生成 QR Code
             initializePage();
             
-            showAuthStatus('已成功登出', true);
+            // 嘗試登出 Google
+            const logoutUrl = 'https://accounts.google.com/logout';
+            const logoutWindow = window.open(logoutUrl, '_blank', 'width=500,height=500');
+            setTimeout(() => {
+                if (logoutWindow) {
+                    logoutWindow.close();
+                }
+            }, 2000);
         }
 
         // 初始化頁面
         function initializePage() {
-            currentSessionId = generateSessionId();
+            const sessionId = generateSessionId();
             const qrData = JSON.stringify({
-                sessionId: currentSessionId,
-                action: 'googleAuth',
-                timestamp: Date.now()
+                sessionId: sessionId,
+                action: 'googleAuth'
             });
             
-            localStorage.setItem('currentSessionId', currentSessionId);
+            localStorage.setItem('currentSessionId', sessionId);
             
-            log(`🚀 初始化頁面，SessionId: ${currentSessionId}`);
+            log(`初始化頁面，產生 sessionId: ${sessionId}`);
             generateQRCode(qrData);
-            updateStatus('請使用手機掃描 QR Code 進行 Google 登入', 'waiting');
-            listenForAuthToken(currentSessionId);
-        }
-
-        // 檢查並恢復登入狀態
-        function checkExistingLogin() {
-            const savedUserInfo = localStorage.getItem('googleUserInfo');
-            const savedCredential = localStorage.getItem('googleCredential');
-            
-            if (savedUserInfo && savedCredential) {
-                try {
-                    googleUserInfo = JSON.parse(savedUserInfo);
-                    googleCredential = savedCredential;
-                    
-                    log('🔄 恢復之前的登入狀態');
-                    showSuccessUI();
-                    showAuthStatus('歡迎回來！已恢復登入狀態', true);
-                    return true;
-                } catch (error) {
-                    log(`❌ 恢復登入狀態失敗: ${error.message}`);
-                    localStorage.removeItem('googleUserInfo');
-                    localStorage.removeItem('googleCredential');
-                }
-            }
-            return false;
+            updateStatus('請使用手機掃描 QR Code 以進行 Google 授權', 'waiting');
+            listenForAuthToken(sessionId);
         }
         
         // 頁面載入
         window.onload = function() {
-            log('🎯 頁面載入完成');
-            
-            // 測試 Firebase 連接
+            log('測試 Firebase 連接...');
             const testRef = database.ref('test');
             testRef.set({
                 timestamp: Date.now(),
-                message: 'Desktop connection test'
+                message: 'Test connection'
             })
             .then(() => {
-                log('✅ Firebase 連接測試成功');
+                log('Firebase 連接測試成功');
             })
             .catch(error => {
-                log(`❌ Firebase 連接測試失敗: ${error.message}`);
+                log(`Firebase 連接測試失敗: ${error.message}`);
             });
-
-            // 檢查是否有之前的登入狀態
-            if (!checkExistingLogin()) {
-                // 沒有之前的登入狀態，初始化新的登入流程
-                initializePage();
-            }
+    
+            initializePage();
             
-            // 除錯按鈕事件
+            // 顯示除錯資訊按鈕
             document.getElementById('showDebugBtn').addEventListener('click', function() {
                 const debugElement = document.getElementById('debug');
                 if (debugElement.style.display === 'none') {
                     debugElement.style.display = 'block';
-                    this.textContent = '🔧 隱藏除錯資訊';
+                    this.textContent = '隱藏除錯資訊';
                 } else {
                     debugElement.style.display = 'none';
-                    this.textContent = '🔧 顯示除錯資訊';
+                    this.textContent = '顯示除錯資訊';
                 }
             });
-
-            // 監聽來自其他窗口的消息
-            window.addEventListener('message', function(event) {
-                if (event.data.type === 'GOOGLE_AUTH_REQUEST') {
-                    // 其他窗口請求認證信息
-                    if (
+        };
+    </script>
+</body>
+</html>
