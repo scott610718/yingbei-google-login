@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>互動式指南：跨裝置 QR Code 登入流程</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chosen Palette: Calm Harmony (Neutral base with blue, green, orange accents) -->
+    <!-- Application Structure Plan: A guided, interactive tour structure. Starts with introducing the 3 core components, then walks the user step-by-step through the 7-stage workflow using an interactive diagram. Concludes with explorable key concepts and best practices. This structure turns a static explanation into an engaging learning experience by visualizing the process flow. -->
+    <!-- Visualization & Content Choices: The core is an interactive process diagram (HTML/CSS/JS) instead of a chart, as the source material describes a process, not quantitative data. Clicking through steps updates highlighting, text, and animated icons representing data flow (e.g., JWT). This visualizes the relationships and changes over time described in the report. Key terms are in clickable cards (JS toggle) for non-linear learning. This avoids SVG/Mermaid as required. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-color: #f8f9fa;
+        }
+        .flow-line {
+            position: absolute;
+            border-style: dashed;
+            border-color: #9ca3af; /* gray-400 */
+            transition: all 0.5s ease-in-out;
+            opacity: 0.5;
+        }
+        .flow-line.active {
+            border-color: #3b82f6; /* blue-500 */
+            border-style: solid;
+            opacity: 1;
+        }
+        .data-packet {
+            position: absolute;
+            padding: 2px 6px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: white;
+            opacity: 0;
+            transition: all 0.5s ease-in-out, transform 0.5s ease-in-out;
+            transform: scale(0.5);
+            white-space: nowrap;
+        }
+        .data-packet.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+        .step-content {
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+        }
+        .step-content.hidden-step {
+            opacity: 0;
+            transform: translateY(10px);
+            display: none;
+        }
+        .component.highlight {
+            box-shadow: 0 0 0 3px #3b82f6; /* blue-500 */
+            transform: scale(1.03);
+        }
+        .icon-spin {
+            animation: spin 1.5s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        
+        <header class="text-center mb-12">
+            <h1 class="text-3xl md:text-5xl font-bold text-slate-900">跨裝置登入的藝術</h1>
+            <p class="mt-4 text-lg text-slate-600 max-w-3xl mx-auto">這份互動指南將帶您深入了解現代網路應用中，從 QR Code 掃描到 Google 帳號安全登入的完整流程。</p>
+        </header>
+
+        <!-- Section 1: Core Components -->
+        <section id="components" class="mb-16">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-8">三大核心組件</h2>
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Desktop Component -->
+                <div id="comp-desktop" class="bg-white p-6 rounded-xl shadow-md border border-slate-200 text-center transition-all duration-300">
+                    <div class="text-5xl mb-4">🖥️</div>
+                    <h3 class="text-xl font-semibold mb-2">電腦端 (發起者)</h3>
+                    <p class="text-slate-600">發起登入請求，生成一次性的會話 ID (Session ID)，並將其編碼為 QR Code 等待手機掃描。</p>
+                </div>
+                <!-- Mobile Component -->
+                <div id="comp-mobile" class="bg-white p-6 rounded-xl shadow-md border border-slate-200 text-center transition-all duration-300">
+                    <div class="text-5xl mb-4">📱</div>
+                    <h3 class="text-xl font-semibold mb-2">手機端 (驗證者)</h3>
+                    <p class="text-slate-600">掃描 QR Code 獲取會話 ID，透過 Google 完成身份驗證，並將憑證傳送回指定通道。</p>
+                </div>
+                <!-- Firebase Component -->
+                <div id="comp-firebase" class="bg-white p-6 rounded-xl shadow-md border border-slate-200 text-center transition-all duration-300">
+                    <div class="text-5xl mb-4">☁️</div>
+                    <h3 class="text-xl font-semibold mb-2">雲端資料庫 (安全通道)</h3>
+                    <p class="text-slate-600">作為電腦與手機間安全、即時的訊息橋樑，傳遞會話 ID 與身份憑證 (ID Token)。</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Interactive Workflow -->
+        <section id="workflow" class="mb-16">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-8">互動式工作流程</h2>
+            <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg border border-slate-200">
+                
+                <!-- Diagram Area -->
+                <div class="relative h-[450px] md:h-[300px] mb-8" id="diagram-container">
+                    <!-- Nodes -->
+                    <div id="diag-desktop" class="absolute top-4 left-4 md:top-1/2 md:-translate-y-1/2 md:left-8 text-center w-24">
+                        <div class="text-6xl">🖥️</div><p class="font-bold mt-1">電腦端</p>
+                    </div>
+                    <div id="diag-mobile" class="absolute bottom-4 left-1/2 -translate-x-1/2 md:top-1/2 md:-translate-y-1/2 md:left-1/2 md:-translate-x-1/2 text-center w-24">
+                        <div class="text-6xl">📱</div><p class="font-bold mt-1">手機端</p>
+                    </div>
+                     <div id="diag-google" class="absolute bottom-4 right-4 md:top-8 md:right-1/2 md:translate-x-[150%] text-center w-24">
+                        <div class="text-6xl">🇬</div><p class="font-bold mt-1">Google</p>
+                    </div>
+                    <div id="diag-firebase" class="absolute top-4 right-4 md:top-1/2 md:-translate-y-1/2 md:right-8 text-center w-24">
+                        <div class="text-6xl">☁️</div><p class="font-bold mt-1">Firebase</p>
+                    </div>
+
+                    <!-- Flow Lines & Data Packets (Positioned by JS) -->
+                </div>
+
+                <!-- Explanation Area -->
+                <div id="explanation-area" class="relative min-h-[150px]">
+                    <!-- Step Content will be injected here by JS -->
+                </div>
+
+                <!-- Navigation -->
+                <div class="flex justify-between items-center mt-8">
+                    <button id="prevBtn" class="bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded-lg hover:bg-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">上一步</button>
+                    <div class="text-sm text-slate-500"><span id="currentStep">1</span> / 7</div>
+                    <button id="nextBtn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors">下一步</button>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Section 3: Key Concepts & Best Practices -->
+        <section id="concepts">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-8">關鍵概念與最佳實踐</h2>
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Concept cards will be injected here -->
+            </div>
+        </section>
+
+    </div>
+
+    <footer class="text-center p-8 text-slate-500 text-sm">
+        <p>這份互動指南旨在將複雜的技術概念變得簡單易懂。</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const steps = [
+                {
+                    title: "1. 啟動會話",
+                    description: "電腦端生成一個唯一的 `sessionId`，將其打包成 JSON，並呈現在 QR Code 中。同時，它開始監聽雲端資料庫中對應的路徑，等待憑證。",
+                    highlights: ['desktop', 'firebase'],
+                    actions: [
+                        { from: 'desktop', to: 'desktop', packet: 'QR Code', type: 'self' }
+                    ]
+                },
+                {
+                    title: "2. 掃描與連結",
+                    description: "手機端掃描 QR Code，解析出 `sessionId`。這一刻，兩個裝置透過這個唯一的 ID 建立了通訊連結。",
+                    highlights: ['mobile'],
+                    actions: [
+                        { from: 'desktop', to: 'mobile', packet: 'sessionId' }
+                    ]
+                },
+                {
+                    title: "3. 身份驗證",
+                    description: "手機端呼叫 Google 身份驗證服務。由於使用者在手機上通常已登入，Google 能夠快速確認身份，並準備簽發一份 ID Token。",
+                    highlights: ['mobile', 'google'],
+                    actions: [
+                        { from: 'mobile', to: 'google', packet: '登入請求' }
+                    ]
+                },
+                 {
+                    title: "4. 憑證傳輸",
+                    description: "Google 將簽發的 ID Token (JWT) 返回給手機端。這份 Token 就是使用者的數位身份證明。接著，手機端將此 Token 上傳至雲端資料庫的指定路徑。",
+                    highlights: ['mobile', 'firebase'],
+                    actions: [
+                        { from: 'google', to: 'mobile', packet: 'ID Token' },
+                        { from: 'mobile', to: 'firebase', packet: 'ID Token' }
+                    ]
+                },
+                {
+                    title: "5. 憑證接收與驗證",
+                    description: "電腦端的監聽器被觸發，從雲端資料庫收到了 ID Token。它解析這份 Token，安全地提取出用戶資訊，如 Email 和姓名。",
+                    highlights: ['desktop', 'firebase'],
+                    actions: [
+                        { from: 'firebase', to: 'desktop', packet: 'ID Token' }
+                    ]
+                },
+                {
+                    title: "6. UI 更新與會話轉移",
+                    description: "電腦端使用獲取的用戶 Email 構建一個帶有登入提示的 Google URL。點擊按鈕後，新分頁會直接打開已登入或提示登入的 Google 頁面。",
+                    highlights: ['desktop'],
+                    actions: [
+                         { from: 'desktop', to: 'desktop', packet: '開啟 Google', type: 'self' }
+                    ]
+                },
+                {
+                    title: "7. 通道銷毀",
+                    description: "電腦端成功處理憑證後，會立即刪除雲端資料庫中的會話數據。這確保了每個 QR Code 只能使用一次，是防止重放攻擊的關鍵安全步驟。",
+                    highlights: ['desktop', 'firebase'],
+                    actions: [
+                        { from: 'desktop', to: 'firebase', packet: '刪除指令' }
+                    ]
+                }
+            ];
+
+            const concepts = [
+                { title: "JWT (ID Token)", content: "JSON Web Token 是一種開放標準 (RFC 7519)，用於安全地在雙方之間傳遞資訊。它經過數位簽名，可被驗證和信任。Google 返回的 ID Token 就是一份 JWT。" },
+                { title: "同源策略", content: "瀏覽器的一項核心安全功能，禁止一個來源的腳本去存取另一個來源的敏感數據（如 Cookie）。這就是為什麼我們不能直接幫 google.com 登入的原因。" },
+                { title: "登入提示 (Login Hint)", content: "`?authuser={email}` 是 Google 提供的一種 URL 參數，用於告訴 Google 頁面使用者意圖使用哪個帳號登入，從而簡化流程。" },
+                { title: "重放攻擊", content: "一種網路攻擊形式，攻擊者惡意重複或延遲一個有效的數據傳輸。我們的一次性 Session ID 和通道銷毀機制可以有效防禦此類攻擊。" }
+            ];
+
+            let currentStepIndex = 0;
+
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const currentStepEl = document.getElementById('currentStep');
+            const explanationContainer = document.getElementById('explanation-area');
+            const diagramContainer = document.getElementById('diagram-container');
+            
+            function updateState() {
+                currentStepEl.textContent = currentStepIndex + 1;
+                prevBtn.disabled = currentStepIndex === 0;
+                nextBtn.disabled = currentStepIndex === steps.length - 1;
+                
+                // Update explanation
+                explanationContainer.innerHTML = ''; // Clear previous
+                const step = steps[currentStepIndex];
+                const newContent = document.createElement('div');
+                newContent.className = 'step-content text-center';
+                newContent.innerHTML = `
+                    <h4 class="text-xl font-bold mb-2 text-blue-600">${step.title}</h4>
+                    <p class="text-slate-600 max-w-xl mx-auto">${step.description}</p>
+                `;
+                explanationContainer.appendChild(newContent);
+                
+                // Update diagram highlights
+                document.querySelectorAll('#components > div, #diagram-container > div').forEach(el => {
+                    el.classList.remove('highlight');
+                });
+                step.highlights.forEach(id => {
+                    document.getElementById(`comp-${id}`)?.classList.add('highlight');
+                });
+
+                // Update diagram flows
+                updateFlows(step.actions);
+            }
+            
+            function getElementCenter(id) {
+                const el = document.getElementById(`diag-${id}`);
+                const rect = el.getBoundingClientRect();
+                const containerRect = diagramContainer.getBoundingClientRect();
+                return {
+                    x: rect.left - containerRect.left + rect.width / 2,
+                    y: rect.top - containerRect.top + rect.height / 2
+                };
+            }
+
+            function updateFlows(actions = []) {
+                diagramContainer.querySelectorAll('.flow-line, .data-packet').forEach(el => el.remove());
+
+                actions.forEach((action, index) => {
+                    if (action.type === 'self') {
+                        const center = getElementCenter(action.from);
+                        const packet = createDataPacket(action.packet);
+                        packet.style.left = `${center.x}px`;
+                        packet.style.top = `${center.y - 60}px`;
+                        diagramContainer.appendChild(packet);
+                        setTimeout(() => packet.classList.add('visible'), 100 + index * 200);
+                        return;
+                    }
+
+                    const from = getElementCenter(action.from);
+                    const to = getElementCenter(action.to);
+                    
+                    const line = document.createElement('div');
+                    line.className = 'flow-line';
+                    
+                    const angle = Math.atan2(to.y - from.y, to.x - from.x) * 180 / Math.PI;
+                    const length = Math.sqrt(Math.pow(to.x - from.x, 2) + Math.pow(to.y - from.y, 2));
+
+                    line.style.width = `${length}px`;
+                    line.style.left = `${from.x}px`;
+                    line.style.top = `${from.y}px`;
+                    line.style.transform = `rotate(${angle}deg)`;
+                    diagramContainer.appendChild(line);
+
+                    const packet = createDataPacket(action.packet);
+                    const midX = (from.x + to.x) / 2 - packet.offsetWidth / 2;
+                    const midY = (from.y + to.y) / 2 - packet.offsetHeight / 2;
+                    packet.style.left = `${midX}px`;
+                    packet.style.top = `${midY}px`;
+                    diagramContainer.appendChild(packet);
+
+                    setTimeout(() => {
+                        line.classList.add('active');
+                        packet.classList.add('visible');
+                    }, 100 + index * 200);
+                });
+            }
+            
+            function createDataPacket(text) {
+                const packet = document.createElement('div');
+                const colors = { 'ID Token': 'bg-green-500', 'sessionId': 'bg-orange-500', 'QR Code': 'bg-gray-700' };
+                const bgColor = colors[text] || 'bg-blue-500';
+                packet.className = `data-packet ${bgColor}`;
+                packet.textContent = text;
+                return packet;
+            }
+
+            function populateConcepts() {
+                const container = document.getElementById('concepts').querySelector('div');
+                concepts.forEach(concept => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-white p-6 rounded-xl shadow-md border border-slate-200 cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300';
+                    card.innerHTML = `<h4 class="text-xl font-semibold mb-2">${concept.title}</h4><p class="text-slate-600 hidden">${concept.content}</p>`;
+                    card.addEventListener('click', () => {
+                        card.querySelector('p').classList.toggle('hidden');
+                    });
+                    container.appendChild(card);
+                });
+            }
+
+            prevBtn.addEventListener('click', () => {
+                if (currentStepIndex > 0) {
+                    currentStepIndex--;
+                    updateState();
+                }
+            });
+
+            nextBtn.addEventListener('click', () => {
+                if (currentStepIndex < steps.length - 1) {
+                    currentStepIndex++;
+                    updateState();
+                }
+            });
+
+            // Initial setup
+            populateConcepts();
+            updateState();
+            window.addEventListener('resize', () => updateFlows(steps[currentStepIndex].actions));
+        });
+    </script>
+</body>
+</html>
