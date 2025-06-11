@@ -63,8 +63,9 @@
             font-size: 16px;
             font-weight: bold;
             transition: 0.5s;
-            display: block;
+            display: inline-block;
             width: 100%;
+            box-sizing: border-box;
         }
         button:hover {
             background-position: right center;
@@ -80,20 +81,8 @@
              display: none; /* Google按鈕將由API渲染 */
              margin: 20px auto;
         }
-        #debug {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #27272a;
-            color: #a1a1aa;
-            border: 1px solid #3f3f46;
-            text-align: left;
-            font-family: monospace;
-            width: 100%;
-            height: 100px;
-            overflow-y: auto;
-            display: none;
-            border-radius: 8px;
-            box-sizing: border-box;
+        .actions-container button {
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -108,13 +97,12 @@
             <div id="reader"></div>
         </div>
 
-        <button id="startScanBtn">掃描 QR Code</button>
+        <div id="actions-container" class="actions-container">
+             <button id="startScanBtn">掃描 QR Code</button>
+        </div>
 
         <!-- Google Sign-In 按鈕的容器 -->
         <div id="gsi-container"></div>
-        
-        <button id="showDebugBtn" style="margin-top: 15px; font-size: 12px; padding: 8px 12px; background: #71717a;">顯示除錯資訊</button>
-        <div id="debug"></div>
     </div>
 
     <script>
@@ -136,13 +124,9 @@
         let sessionData = null;
         let html5QrCode = null;
 
-        // 紀錄除錯資訊
-        function log(message) {
-            const debugElement = document.getElementById('debug');
-            debugElement.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
-            debugElement.scrollTop = debugElement.scrollHeight;
-            console.log(message);
-        }
+        const startScanBtn = document.getElementById('startScanBtn');
+        const gsiContainer = document.getElementById('gsi-container');
+        const actionsContainer = document.getElementById('actions-container');
 
         // 更新狀態消息
         function updateStatus(message, type) {
@@ -150,50 +134,52 @@
             const statusMessage = document.getElementById('statusMessage');
             statusMessage.textContent = message;
             statusContainer.className = `status ${type}`;
-            log(`狀態更新: ${message}`);
         }
+        
+        // **核心修正：重置頁面狀態到初始畫面**
+        function resetToInitialState() {
+            sessionData = null;
+            localStorage.removeItem('sessionData'); // 清除本地儲存
+            gsiContainer.style.display = 'none'; // 隱藏GSI按鈕
+            actionsContainer.innerHTML = '<button id="startScanBtn">掃描 QR Code</button>'; // 重建掃描按鈕
+            document.getElementById('startScanBtn').addEventListener('click', startScanner);
+            updateStatus('請點擊下方按鈕啟動相機，並掃描電腦上的 QR Code。', 'info');
+        }
+
 
         // QR Code 掃描成功後的回調函數
         function onScanSuccess(decodedText, decodedResult) {
-            log(`掃描成功: ${decodedText}`);
             updateStatus('QR Code 掃描成功！', 'success');
             html5QrCode.stop().then(() => {
                 document.getElementById('reader-container').style.display = 'none';
-                log("相機已停止。");
                 try {
                     const data = JSON.parse(decodedText);
                     if (data.sessionId && data.action === 'googleAuth') {
                         sessionData = data;
-                        localStorage.setItem('sessionData', JSON.stringify(sessionData)); // 本地保存以防頁面刷新
-                        log(`獲取 sessionId: ${sessionData.sessionId}`);
+                        localStorage.setItem('sessionData', JSON.stringify(sessionData));
                         updateStatus('已獲取連線資訊，請登入 Google 帳號。', 'processing');
-                        
-                        // 顯示 Google 登入按鈕
-                        document.getElementById('gsi-container').style.display = 'block';
+                        gsiContainer.style.display = 'block'; // 顯示 Google 登入按鈕
+                        actionsContainer.innerHTML = ''; // 清空舊按鈕
                     } else {
                         throw new Error("無效的 QR Code 內容。");
                     }
                 } catch (e) {
-                    log(`QR Code 解析失敗: ${e.message}`);
                     updateStatus('掃描到的 QR Code 格式不正確，請重新掃描。', 'error');
-                    document.getElementById('startScanBtn').disabled = false;
+                    resetToInitialState();
                 }
             }).catch(err => {
-                log(`停止相機失敗: ${err}`);
                 updateStatus('無法正常關閉相機，請刷新頁面。', 'error');
             });
         }
 
         // 處理 Google 登入後的回調
         function handleCredentialResponse(response) {
-            log("收到 Google 登入回調。");
             updateStatus('登入成功，正在傳送資料至電腦端...', 'processing');
-            document.getElementById('gsi-container').style.display = 'none'; // 隱藏登入按鈕
+            gsiContainer.style.display = 'none';
 
             if (!sessionData || !sessionData.sessionId) {
-                log("錯誤: 沒有 sessionData 可用。");
                 updateStatus('連線階段資訊遺失，請重新掃描 QR Code。', 'error');
-                document.getElementById('startScanBtn').disabled = false;
+                resetToInitialState();
                 return;
             }
             
@@ -204,32 +190,35 @@
         // 將憑證發送到電腦端
         function sendCredentialToDesktop(sessionId, credential) {
             const sessionRef = database.ref('sessions/' + sessionId);
-            log(`準備發送憑證到 Firebase 路徑: sessions/${sessionId}`);
             sessionRef.set({
                 credential: credential,
                 timestamp: Date.now()
             }).then(() => {
-                log("成功發送憑證到 Firebase。");
                 updateStatus('授權成功！您現在可以回到電腦上操作。', 'success');
-                localStorage.removeItem('sessionData'); // 清除已使用的 session
+                // **核心修正：成功後立即重置狀態**
+                setTimeout(resetToInitialState, 2000); // 延遲2秒重置，讓使用者看到成功訊息
             }).catch((error) => {
-                log(`Firebase 寫入失敗: ${error.message}`);
                 updateStatus('傳送資料至電腦端失敗，請重試。', 'error');
+                // 失敗時也提供重置選項
+                actionsContainer.innerHTML = '<button id="resetBtn">重新開始</button>';
+                document.getElementById('resetBtn').addEventListener('click', resetToInitialState);
             });
         }
 
         // 初始化 Google One Tap 登入
         function initializeGoogleSignIn() {
-            log('正在初始化 Google Sign-In...');
-            window.google.accounts.id.initialize({
-                client_id: "130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com",
-                callback: handleCredentialResponse
-            });
-            window.google.accounts.id.renderButton(
-                document.getElementById("gsi-container"),
-                { theme: "outline", size: "large", text: "signin_with", shape: "rectangular" } 
-            );
-            log('Google Sign-In 按鈕已渲染。');
+            try {
+                window.google.accounts.id.initialize({
+                    client_id: "130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com",
+                    callback: handleCredentialResponse
+                });
+                window.google.accounts.id.renderButton(
+                    gsiContainer,
+                    { theme: "outline", size: "large", text: "signin_with", shape: "rectangular" } 
+                );
+            } catch (error) {
+                updateStatus('Google 登入服務初始化失敗，請檢查網路連線。', 'error');
+            }
         }
 
         // 初始化並啟動掃描器
@@ -240,55 +229,26 @@
 
             html5QrCode = new Html5Qrcode("reader");
             html5QrCode.start(
-                { facingMode: "environment" }, // 優先使用後置鏡頭
+                { facingMode: "environment" },
                 {
                     fps: 10,
                     qrbox: { width: 250, height: 250 }
                 },
                 onScanSuccess,
-                (errorMessage) => { 
-                    // 掃描中的錯誤訊息，通常可以忽略
-                    // log(`掃描中: ${errorMessage}`);
-                }
+                (errorMessage) => { /* ignore */ }
             ).catch((err) => {
-                log(`啟動掃描器失敗: ${err}`);
                 updateStatus('無法啟動相機，請檢查權限並刷新頁面。', 'error');
-                document.getElementById('startScanBtn').style.display = 'block';
                 document.getElementById('reader-container').style.display = 'none';
+                resetToInitialState();
             });
         }
 
         // 頁面加載完成後執行
         window.onload = function() {
-            log("頁面載入完成。");
-            
-            // 初始化 Google 登入服務，這樣當掃描完成後可以立刻顯示按鈕
             initializeGoogleSignIn();
-
-            document.getElementById('startScanBtn').addEventListener('click', function() {
-                startScanner();
-            });
             
-            document.getElementById('showDebugBtn').addEventListener('click', function() {
-                const debugElement = document.getElementById('debug');
-                debugElement.style.display = (debugElement.style.display === 'none') ? 'block' : 'none';
-                this.textContent = (debugElement.style.display === 'none') ? '顯示除錯資訊' : '隱藏除錯資訊';
-            });
-
-            // 嘗試從 localStorage 恢復 session，如果使用者掃描後不小心刷新頁面
-            const savedSession = localStorage.getItem('sessionData');
-            if (savedSession) {
-                try {
-                    sessionData = JSON.parse(savedSession);
-                    log(`從 localStorage 恢復 session: ${sessionData.sessionId}`);
-                    updateStatus('已恢復連線資訊，請登入 Google 帳號。', 'processing');
-                    document.getElementById('gsi-container').style.display = 'block';
-                    document.getElementById('startScanBtn').style.display = 'none';
-                } catch (e) {
-                    log('恢復 session 失敗，清除損壞的數據。');
-                    localStorage.removeItem('sessionData');
-                }
-            }
+            // **核心修正：不再自動從localStorage恢復流程，而是讓使用者手動開始**
+            resetToInitialState();
         };
     </script>
 </body>
