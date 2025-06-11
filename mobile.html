@@ -4,53 +4,70 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>手機端 - QR Code 掃描器</title>
-    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.2.1/html5-qrcode.min.js"></script>
+    <!-- 相依套件 -->
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            background-color: #f4f7f9;
+            color: #333;
             max-width: 500px;
             margin: 0 auto;
+            padding: 20px;
+            text-align: center;
         }
         .container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
         }
         #reader {
-            width: 100%;
-            max-width: 400px;
-        }
-        button {
-            padding: 10px 20px;
-            background-color: #4285f4;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 10px;
-            font-size: 16px;
+            width: 90%;
+            margin: 20px auto;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #ddd;
         }
         .status {
             margin: 20px 0;
-            padding: 10px;
-            border-radius: 4px;
-            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
         }
-        .waiting {
-            background-color: #f0f0f0;
+        .info { background-color: #e9ecef; color: #495057; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #4285f4, #3367d6);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            margin: 5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(66, 133, 244, 0.4);
         }
-        .success {
-            background-color: #d4edda;
-            color: #155724;
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(66, 133, 244, 0.5);
         }
-        .error {
-            background-color: #f8d7da;
-            color: #721c24;
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+        #google-signin-container {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
         }
         #debug {
             margin-top: 20px;
@@ -59,39 +76,51 @@
             border: 1px solid #ddd;
             text-align: left;
             font-family: monospace;
-            width: 100%;
             max-height: 150px;
             overflow-y: auto;
-            display: none;
-        }
-        #googleOneTap {
-            margin-top: 20px;
-            text-align: center;
             display: none;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>手機端 - QR Code 掃描器</h1>
+        <h1>手機端 - 授權登入</h1>
         
-        <div id="statusContainer" class="status waiting">
-            <p id="statusMessage">請掃描電腦上顯示的 QR Code</p>
+        <div id="statusContainer" class="status info">
+            <p id="statusMessage">請點擊按鈕開始掃描電腦上的 QR Code。</p>
         </div>
-        
-        <div id="scannerContainer">
-            <div id="reader"></div>
+
+        <!-- 步驟一: 掃描 QR Code -->
+        <div id="scan-step">
             <button id="startScanBtn">開始掃描</button>
+            <div id="reader"></div>
         </div>
-        
-        <div id="googleOneTap"></div>
-        
+
+        <!-- 步驟二: Google 登入 -->
+        <div id="signin-step" style="display: none;">
+            <p>掃描成功！請點擊下方按鈕以您的 Google 帳號授權電腦端登入。</p>
+            <div id="g_id_onload"
+                 data-client_id="261477282402-kqa5t02kngg1kmo7qgmm7ct5qku2t5ai.apps.googleusercontent.com"
+                 data-callback="handleCredentialResponse"
+                 data-auto_prompt="false">
+            </div>
+            <div class="g_id_signin"
+                 data-type="standard"
+                 data-shape="rectangular"
+                 data-theme="outline"
+                 data-text="signin_with"
+                 data-size="large"
+                 data-logo_alignment="left">
+            </div>
+        </div>
+
+        <!-- 除錯資訊 -->
         <div id="debug"></div>
-        <button id="showDebugBtn" style="margin-top: 20px; background-color: #6c757d;">顯示除錯資訊</button>
+        <button id="showDebugBtn" style="margin-top: 20px; background-color: #6c757d; font-size: 12px; padding: 8px 12px;">顯示除錯資訊</button>
     </div>
 
     <script>
-        // Firebase 配置
+        // Firebase 設定
         const firebaseConfig = {
             apiKey: "AIzaSyArF8xncLwA3osSQ_o6yWIyuOc0TMrXRTY",
             authDomain: "yingpei--login.firebaseapp.com",
@@ -102,19 +131,16 @@
             appId: "1:261477282402:web:557f0be058e07cd642173b",
             measurementId: "G-EB9PR17TJL"
         };
-
-        // Google One Tap 客戶端 ID
-        const googleClientId = '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com';
-
+        
         // 初始化 Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
-
-        // 全局變數
-        let html5QrCode;
+        
+        // 全域變數
         let sessionData = null;
+        let html5QrCode = null;
 
-        // 紀錄除錯資訊
+        // 記錄除錯資訊
         function log(message) {
             const debugElement = document.getElementById('debug');
             const time = new Date().toLocaleTimeString();
@@ -123,7 +149,7 @@
             console.log(message);
         }
 
-        // 更新狀態消息
+        // 更新狀態訊息
         function updateStatus(message, type) {
             const statusContainer = document.getElementById('statusContainer');
             const statusMessage = document.getElementById('statusMessage');
@@ -133,172 +159,118 @@
             log(`狀態更新: ${message}`);
         }
 
-        // 初始化 QR Code 掃描器
-        function initScanner() {
-            html5QrCode = new Html5Qrcode("reader");
-        }
-
-        // 開始掃描
-        function startScanner() {
-            const qrConfig = { fps: 10, qrbox: { width: 250, height: 250 } };
+        // 成功掃描 QR Code 後的回調函數
+        function onScanSuccess(decodedText, decodedResult) {
+            log(`QR Code 掃描成功: ${decodedText}`);
             
-            html5QrCode.start(
-                { facingMode: "environment" },
-                qrConfig,
-                onScanSuccess,
-                onScanFailure
-            );
-        }
-
-        // 掃描成功處理
-        function onScanSuccess(decodedText) {
+            // 停止掃描
+            html5QrCode.stop().then(() => {
+                log('QR Code 掃描器已停止。');
+                document.getElementById('reader').style.display = 'none'; // 隱藏掃描器畫面
+            }).catch(err => {
+                log(`停止掃描器時出錯: ${err}`);
+            });
+            
             try {
-                // 停止掃描
-                html5QrCode.stop();
-                
-                // 解析 QR Code 數據
-                const qrData = JSON.parse(decodedText);
-                log(`掃描成功，解析數據: ${JSON.stringify(qrData)}`);
-                
-                if (qrData.sessionId && qrData.action === 'googleAuth') {
-                    // 儲存 sessionId 到本地存儲和全局變數
-                    sessionData = qrData;
-                    localStorage.setItem('sessionData', JSON.stringify(qrData));
-                    log(`已儲存 sessionId: ${qrData.sessionId}`);
+                const data = JSON.parse(decodedText);
+                if (data.sessionId && data.action === 'googleAuth') {
+                    sessionData = data;
+                    log(`解析 sessionId 成功: ${sessionData.sessionId}`);
                     
-                    updateStatus('QR Code 掃描成功! 正在啟動 Google One Tap 登入', 'success');
-                    
-                    // 隱藏掃描器，顯示 Google One Tap
-                    document.getElementById('scannerContainer').style.display = 'none';
-                    document.getElementById('googleOneTap').style.display = 'block';
-                    
-                    // 初始化 Google One Tap
-                    initializeGoogleOneTap();
+                    // 進入下一步：Google 登入
+                    document.getElementById('scan-step').style.display = 'none';
+                    document.getElementById('signin-step').style.display = 'block';
+                    updateStatus('掃描成功，請點擊下方按鈕登入 Google。', 'success');
+
                 } else {
-                    throw new Error('QR Code 格式無效');
+                    throw new Error('無效的 QR Code 內容。');
                 }
             } catch (error) {
-                updateStatus('掃描出錯: ' + error.message, 'error');
-                // 重新啟用掃描按鈕
-                document.getElementById('startScanBtn').disabled = false;
+                log(`解析 QR Code 失敗: ${error.message}`);
+                updateStatus(`QR Code 內容無效，請重新掃描。錯誤: ${error.message}`, 'error');
+                resetToScanStep();
             }
         }
 
-        // 掃描失敗處理
+        // 掃描失敗的回調函數
         function onScanFailure(error) {
-            console.warn(`掃描失敗: ${error}`);
+            // 這個函數會頻繁觸發，所以我們只在控制台記錄，不打擾使用者
+            // log(`掃描失敗，錯誤: ${error}`);
         }
 
-        // 初始化 Google One Tap
-        function initializeGoogleOneTap() {
-            log('初始化 Google One Tap');
+        // 初始化並開始掃描器
+        function startScanner() {
+            html5QrCode = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
             
-            // Google One Tap 配置
-            google.accounts.id.initialize({
-                client_id: googleClientId,
-                callback: handleCredentialResponse,
-                auto_select: true,
-                cancel_on_tap_outside: false
-            });
-            
-            // 顯示 Google One Tap
-            google.accounts.id.renderButton(
-                document.getElementById('googleOneTap'),
-                { 
-                    theme: 'outline',
-                    size: 'large',
-                    text: 'signin_with',
-                    shape: 'rectangular',
-                    logo_alignment: 'center',
-                    width: 280
-                }
-            );
-            
-            // 提示 Google One Tap
-            google.accounts.id.prompt();
-        }
+            updateStatus('請將相機對準電腦螢幕上的 QR Code...', 'info');
+            document.getElementById('startScanBtn').style.display = 'none'; // 隱藏開始按鈕
+            document.getElementById('reader').style.display = 'block'; // 顯示掃描器
 
-        // 處理 Google One Tap 回調
-        function handleCredentialResponse(response) {
-            log('收到 Google One Tap 回調');
-            
-            if (response && response.credential) {
-                log('成功獲取 Google 憑證');
-                
-                // 將 JWT 令牌發送到 Firebase
-                if (sessionData && sessionData.sessionId) {
-                    sendDataToFirebase(sessionData.sessionId, response.credential);
-                } else {
-                    updateStatus('錯誤: 沒有有效的 sessionId', 'error');
-                }
-            } else {
-                log('Google One Tap 未能獲取憑證');
-                updateStatus('Google 登入失敗', 'error');
-            }
+            html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure)
+                .catch(err => {
+                    log(`無法啟動掃描器: ${err}`);
+                    updateStatus(`無法啟動相機，請檢查權限並重新整理頁面。錯誤: ${err}`, 'error');
+                });
         }
-
-        // 發送數據到 Firebase
-        function sendDataToFirebase(sessionId, credential) {
-            log(`準備發送數據到 Firebase，sessionId: ${sessionId}`);
-            if (!sessionId || !credential) {
-               log('錯誤: sessionId 或 credential 為空');
-               updateStatus('發送失敗: 缺少必要參數', 'error');
-               return Promise.reject(new Error('缺少必要參數'));
-            }
-            
-            const sessionRef = database.ref('sessions/' + sessionId);
-            const data = {
-                credential: credential,
-                token: credential,       // 添加一個別名以防 desktop.html 在檢查 token
-                timestamp: Date.now()
-            };
-            log(`要發送的數據: ${JSON.stringify({credential: credential.substring(0, 10) + '...', timestamp: data.timestamp})}`);
-            
-            return sessionRef.set(data)
-            .then(() => {
-                log(`數據成功發送到 Firebase`);
         
-                // 確認數據是否真的寫入
-                return sessionRef.once('value');
+        // Google 登入成功後的回調函數 (由 Google GSI 庫呼叫)
+        function handleCredentialResponse(response) {
+            log('收到 Google 登入回調');
+            if (!sessionData || !sessionData.sessionId) {
+                updateStatus('發生錯誤，缺少 Session ID，請重新掃描。', 'error');
+                log('錯誤: handleCredentialResponse 被呼叫，但 sessionData 不存在。');
+                resetToScanStep();
+                return;
+            }
+            
+            if (response.credential) {
+                log('憑證接收成功，正在發送至電腦端...');
+                updateStatus('正在傳送登入資訊至電腦端...', 'info');
+                
+                sendCredentialToDesktop(response.credential);
+            } else {
+                log('Google 登入回調中未包含憑證。');
+                updateStatus('Google 登入失敗，請重試。', 'error');
+            }
+        }
+        
+        // 將憑證發送到電腦端
+        function sendCredentialToDesktop(credential) {
+            const sessionRef = database.ref('sessions/' + sessionData.sessionId);
+            
+            sessionRef.set({
+                credential: credential,
+                timestamp: Date.now()
             })
-            .then((snapshot) => {
-                const checkData = snapshot.val();
-                if (checkData && checkData.credential) {
-                    log(`確認: 數據已成功寫入 Firebase`);
-                    updateStatus('授權成功! 已將 Google 登入憑證發送到電腦端', 'success');
-                    return true;
-                } else {
-                    throw new Error('數據似乎未成功寫入');
-                }
+            .then(() => {
+                log('憑證成功發送至 Firebase');
+                updateStatus('授權成功！您現在可以關閉此頁面，並在電腦上繼續操作。', 'success');
+                // 隱藏登入按鈕，防止重複提交
+                document.getElementById('signin-step').style.display = 'none'; 
             })
-            .catch((error) => {
-                log(`發送數據到 Firebase 失敗: ${error.message}`);
-                updateStatus('發送數據到電腦端失敗: ' + error.message, 'error');
-                return false;
+            .catch(error => {
+                log(`發送憑證至 Firebase 失敗: ${error.message}`);
+                updateStatus(`傳送資訊失敗，請檢查網路連線並重試。錯誤: ${error.message}`, 'error');
             });
         }
 
-        // 初始化頁面
+        // 重置 UI 到初始掃描步驟
+        function resetToScanStep() {
+            sessionData = null;
+            document.getElementById('scan-step').style.display = 'block';
+            document.getElementById('startScanBtn').style.display = 'inline-block';
+            document.getElementById('signin-step').style.display = 'none';
+            document.getElementById('reader').style.display = 'none';
+            updateStatus('請點擊按鈕開始掃描電腦上的 QR Code。', 'info');
+        }
+
+        // 頁面載入事件
         window.onload = function() {
-            log(`頁面加載完成，開始初始化...`);
-            initScanner();
-            
-            // 設置掃描按鈕事件處理
-            document.getElementById('startScanBtn').addEventListener('click', function() {
-                this.disabled = true;
-                startScanner();
-            });
-            
-            // 從 localStorage 恢復 session 數據
-            const savedSession = localStorage.getItem('sessionData');
-            if (savedSession) {
-                try {
-                    sessionData = JSON.parse(savedSession);
-                    log(`從 localStorage 恢復 sessionData: ${JSON.stringify(sessionData)}`);
-                } catch (e) {
-                    log(`恢復 sessionData 失敗: ${e.message}`);
-                }
-            }
+            log(`頁面載入完成，等待使用者操作。`);
+
+            // 設置掃描按鈕事件
+            document.getElementById('startScanBtn').addEventListener('click', startScanner);
             
             // 顯示除錯資訊按鈕
             document.getElementById('showDebugBtn').addEventListener('click', function() {
