@@ -267,16 +267,25 @@
 function handleGoogleSignIn(credential) {
     log('開始處理 Google 登入');
     
-    // 解析手機端傳來的用戶資訊（僅用於顯示）
     const payload = parseJwt(credential);
     if (payload) {
         log(`收到手機端用戶資訊: ${payload.name}`);
         
+        // 保存用戶資訊
+        googleUserInfo = {
+            name: payload.name,
+            email: payload.email,
+            picture: payload.picture,
+            id: payload.sub
+        };
+        
         // 先顯示用戶基本資訊
         displayUserInfo(payload);
         
-        // 在桌面端也執行 Google OAuth 以建立 session
-        initiateDesktopGoogleAuth(payload.email);
+        // 延遲一秒後開始桌面端授權流程
+        setTimeout(() => {
+            initiateDesktopGoogleAuth(payload.email);
+        }, 1000);
         
     } else {
         log('JWT 解析失敗');
@@ -284,19 +293,28 @@ function handleGoogleSignIn(credential) {
     }
 }
 
-// 新增：顯示用戶基本資訊
+// 修正：顯示用戶基本資訊
 function displayUserInfo(userData) {
     document.getElementById('qrcode-container').style.display = 'none';
     document.getElementById('user-profile').style.display = 'block';
+    
+    // *** 確保所有區塊都顯示 ***
+    document.getElementById('welcome-message').style.display = 'block';
+    document.getElementById('user-actions').style.display = 'block';
     
     document.getElementById('profile-image').src = userData.picture || `https://placehold.co/80x80/fbbc05/FFFFFF?text=${userData.name.charAt(0)}`;
     document.getElementById('user-name').textContent = userData.name;
     document.getElementById('user-email').textContent = userData.email;
     
+    // *** 先設置按鈕為等待狀態 ***
+    const openGoogleBtn = document.getElementById('openGoogleBtn');
+    openGoogleBtn.textContent = "正在建立會話...";
+    openGoogleBtn.disabled = true;
+    
     updateStatus('正在建立桌面端 Google 會話...', 'waiting');
 }
 
-// 新增：在桌面端執行 Google OAuth
+// 修正：在桌面端執行 Google OAuth
 function initiateDesktopGoogleAuth(userEmail) {
     log('開始桌面端 Google 授權流程');
     
@@ -307,23 +325,38 @@ function initiateDesktopGoogleAuth(userEmail) {
         auto_select: false
     });
 
-    // 使用 prompt 方式強制顯示帳號選擇器
+    // 嘗試自動登入
     window.google.accounts.id.prompt((notification) => {
         log(`Google prompt 狀態: ${notification.getNotificationCode()}`);
         
-        if (notification.isNotDisplayed()) {
-            log('Google prompt 未顯示，嘗試使用 popup 方式');
-            // 如果 prompt 失敗，使用 popup OAuth
-            usePopupOAuth(userEmail);
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            log('自動登入失敗，設置手動登入按鈕');
+            setupManualGoogleAuth(userEmail);
         }
     });
 }
 
-// 新增：處理桌面端 Google 回應
+// 新增：設置手動 Google 授權按鈕
+function setupManualGoogleAuth(userEmail) {
+    const openGoogleBtn = document.getElementById('openGoogleBtn');
+    openGoogleBtn.textContent = "完成 Google 授權";
+    openGoogleBtn.disabled = false;
+    
+    openGoogleBtn.onclick = () => {
+        log('用戶點擊手動授權按鈕');
+        openGoogleBtn.textContent = "授權中...";
+        openGoogleBtn.disabled = true;
+        
+        // 觸發 Google 登入
+        window.google.accounts.id.prompt();
+    };
+    
+    updateStatus('請點擊按鈕完成 Google 授權以建立桌面會話', 'waiting');
+}
+
+// 修正：處理桌面端 Google 回應
 function handleDesktopGoogleResponse(response) {
     log('桌面端 Google 授權成功');
-    
-    // 現在桌面端也有了 Google session
     completeDesktopLogin();
 }
 
@@ -357,27 +390,37 @@ function usePopupOAuth(userEmail) {
     });
 }
 
-// 新增：完成桌面端登入設置
+// 修正：完成桌面端登入設置
 function completeDesktopLogin() {
     updateStatus(`登入成功！現在可以直接存取 Google 服務`, 'success');
     
+    // 確保區塊顯示
     document.getElementById('welcome-message').style.display = 'block';
     document.getElementById('user-actions').style.display = 'block';
     
     // 更新歡迎訊息
-    document.querySelector('#welcome-message p').textContent = 
-        '桌面端 Google 會話已建立！您現在可以直接存取 Google 服務。';
+    const welcomeMsg = document.querySelector('#welcome-message');
+    welcomeMsg.innerHTML = `
+        <h3>登入成功！</h3>
+        <p>桌面端 Google 會話已建立！您現在可以直接存取 Google 服務。</p>
+    `;
     
-    // 設置按鈕功能 - 現在應該可以直接存取
-    const openGoogleBtn = document.getElementById('openGoogleBtn');
-    openGoogleBtn.textContent = "開啟 Google 帳戶";
-    openGoogleBtn.onclick = () => {
-        // 由於已建立 session，這應該會直接開啟已登入的 Google 頁面
+    // *** 重新創建並設置按鈕 ***
+    const buttonContainer = document.createElement('div');
+    buttonContainer.innerHTML = `
+        <button id="openGoogleBtn">開啟 Google 帳戶</button>
+        <button onclick="window.open('https://mail.google.com/', '_blank')">開啟 Gmail</button>
+        <button onclick="window.open('https://drive.google.com/', '_blank')">開啟 Google Drive</button>
+    `;
+    welcomeMsg.appendChild(buttonContainer);
+    
+    // 設置主按鈕功能
+    document.getElementById('openGoogleBtn').onclick = () => {
+        log('開啟 Google 帳戶頁面');
         window.open('https://myaccount.google.com/', '_blank');
     };
-    openGoogleBtn.disabled = false;
     
-    log("桌面端 Google 會話建立完成");
+    log("桌面端 Google 會話建立完成，所有按鈕已設置");
 }
 
         // 解析 JWT (無需修改)
