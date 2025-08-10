@@ -7,6 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -262,31 +263,122 @@
             });
         }
 
-        // 處理 Google 登入
-        function handleGoogleSignIn(credential) {
-            log('開始處理 Google 登入');
-            
-            // 解析 JWT
-            const payload = parseJwt(credential);
-            if (payload) {
-                log(`成功解析 JWT，使用者: ${payload.name}`);
-                
-                // 保存用戶資訊
-                googleUserInfo = {
-                    name: payload.name,
-                    email: payload.email,
-                    picture: payload.picture,
-                    id: payload.sub // Google User ID
-                };
-                
-                // 更新 UI
-                displayUserProfile(googleUserInfo);
-                
-            } else {
-                log('JWT 解析失敗');
-                updateStatus('處理 Google 登入憑證失敗', 'error');
-            }
+// 處理 Google 登入
+function handleGoogleSignIn(credential) {
+    log('開始處理 Google 登入');
+    
+    // 解析手機端傳來的用戶資訊（僅用於顯示）
+    const payload = parseJwt(credential);
+    if (payload) {
+        log(`收到手機端用戶資訊: ${payload.name}`);
+        
+        // 先顯示用戶基本資訊
+        displayUserInfo(payload);
+        
+        // 在桌面端也執行 Google OAuth 以建立 session
+        initiateDesktopGoogleAuth(payload.email);
+        
+    } else {
+        log('JWT 解析失敗');
+        updateStatus('處理 Google 登入憑證失敗', 'error');
+    }
+}
+
+// 新增：顯示用戶基本資訊
+function displayUserInfo(userData) {
+    document.getElementById('qrcode-container').style.display = 'none';
+    document.getElementById('user-profile').style.display = 'block';
+    
+    document.getElementById('profile-image').src = userData.picture || `https://placehold.co/80x80/fbbc05/FFFFFF?text=${userData.name.charAt(0)}`;
+    document.getElementById('user-name').textContent = userData.name;
+    document.getElementById('user-email').textContent = userData.email;
+    
+    updateStatus('正在建立桌面端 Google 會話...', 'waiting');
+}
+
+// 新增：在桌面端執行 Google OAuth
+function initiateDesktopGoogleAuth(userEmail) {
+    log('開始桌面端 Google 授權流程');
+    
+    // 初始化 Google Identity Services
+    window.google.accounts.id.initialize({
+        client_id: "130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com",
+        callback: handleDesktopGoogleResponse,
+        auto_select: false
+    });
+
+    // 使用 prompt 方式強制顯示帳號選擇器
+    window.google.accounts.id.prompt((notification) => {
+        log(`Google prompt 狀態: ${notification.getNotificationCode()}`);
+        
+        if (notification.isNotDisplayed()) {
+            log('Google prompt 未顯示，嘗試使用 popup 方式');
+            // 如果 prompt 失敗，使用 popup OAuth
+            usePopupOAuth(userEmail);
         }
+    });
+}
+
+// 新增：處理桌面端 Google 回應
+function handleDesktopGoogleResponse(response) {
+    log('桌面端 Google 授權成功');
+    
+    // 現在桌面端也有了 Google session
+    completeDesktopLogin();
+}
+
+// 新增：使用 Popup OAuth 作為備案
+function usePopupOAuth(userEmail) {
+    const oauth2Endpoint = 'https://accounts.google.com/o/oauth2/v2/auth';
+    const params = new URLSearchParams({
+        client_id: '130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com',
+        redirect_uri: window.location.origin + '/oauth-callback.html', // 需要建立這個檔案
+        response_type: 'code',
+        scope: 'openid profile email',
+        login_hint: userEmail, // 提示使用特定帳號
+        prompt: 'consent'
+    });
+    
+    const authUrl = `${oauth2Endpoint}?${params.toString()}`;
+    
+    // 開啟 popup 視窗
+    const popup = window.open(authUrl, 'google-auth', 
+        'width=500,height=600,scrollbars=yes,resizable=yes');
+    
+    // 監聽 popup 回傳
+    window.addEventListener('message', (event) => {
+        if (event.origin !== window.location.origin) return;
+        
+        if (event.data.type === 'GOOGLE_AUTH_SUCCESS') {
+            popup.close();
+            log('Popup OAuth 授權成功');
+            completeDesktopLogin();
+        }
+    });
+}
+
+// 新增：完成桌面端登入設置
+function completeDesktopLogin() {
+    updateStatus(`登入成功！現在可以直接存取 Google 服務`, 'success');
+    
+    document.getElementById('welcome-message').style.display = 'block';
+    document.getElementById('user-actions').style.display = 'block';
+    
+    // 更新歡迎訊息
+    document.querySelector('#welcome-message p').textContent = 
+        '桌面端 Google 會話已建立！您現在可以直接存取 Google 服務。';
+    
+    // 設置按鈕功能 - 現在應該可以直接存取
+    const openGoogleBtn = document.getElementById('openGoogleBtn');
+    openGoogleBtn.textContent = "開啟 Google 帳戶";
+    openGoogleBtn.onclick = () => {
+        // 由於已建立 session，這應該會直接開啟已登入的 Google 頁面
+        window.open('https://myaccount.google.com/', '_blank');
+    };
+    openGoogleBtn.disabled = false;
+    
+    log("桌面端 Google 會話建立完成");
+}
 
         // 解析 JWT (無需修改)
         function parseJwt(token) {
