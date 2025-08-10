@@ -318,26 +318,84 @@ function displayUserInfo(userData) {
 function initiateDesktopGoogleAuth(userEmail) {
     log('開始桌面端 Google 授權流程');
     
-    // 初始化 Google Identity Services
-    window.google.accounts.id.initialize({
-        client_id: "130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com",
-        callback: handleDesktopGoogleResponse,
-        auto_select: false
-    });
-
-    // 嘗試自動登入
-    window.google.accounts.id.prompt((notification) => {
-        log(`Google prompt 狀態: ${notification.getNotificationCode()}`);
+    // 檢查 Google API 是否可用
+    if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) {
+        log('Google API 未載入，使用備案方案');
+        setupFallbackAuth(userEmail);
+        return;
+    }
+    
+    try {
+        // 初始化 Google Identity Services
+        google.accounts.id.initialize({
+            client_id: "130403455153-cdmr57ri7qh3s6c8riul6q6hsi3arjf8.apps.googleusercontent.com",
+            callback: handleDesktopGoogleResponse,
+            auto_select: false
+        });
         
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            log('自動登入失敗，設置手動登入按鈕');
+        log('Google API 初始化完成，嘗試自動登入');
+        
+        // 設定 3 秒超時
+        const timeoutId = setTimeout(() => {
+            log('Google 自動登入超時，切換到手動模式');
             setupManualGoogleAuth(userEmail);
-        }
-    });
+        }, 3000);
+
+        // 嘗試自動登入
+        google.accounts.id.prompt((notification) => {
+            clearTimeout(timeoutId);
+            log(`Google prompt 狀態: ${notification.getNotificationCode()}`);
+            
+            if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                log('自動登入未顯示，設置手動登入按鈕');
+                setupManualGoogleAuth(userEmail);
+            } else if (notification.isDismissedMoment()) {
+                log('用戶關閉了登入提示，設置手動按鈕');
+                setupManualGoogleAuth(userEmail);
+            }
+        });
+        
+    } catch (error) {
+        log(`Google API 初始化錯誤: ${error.message}`);
+        setupFallbackAuth(userEmail);
+    }
+}
+// 新增：備案授權方案（不依賴 Google API）
+function setupFallbackAuth(userEmail) {
+    log('設置備案授權方案');
+    
+    const openGoogleBtn = document.getElementById('openGoogleBtn');
+    openGoogleBtn.textContent = "點擊授權 Google";
+    openGoogleBtn.disabled = false;
+    
+    openGoogleBtn.onclick = () => {
+        log('使用備案方案開啟 Google 授權');
+        
+        // 直接開啟 Google 授權頁面
+        const authUrl = `https://accounts.google.com/signin/v2/identifier?continue=https%3A%2F%2Fmyaccount.google.com%2F&hl=zh-TW&login_hint=${encodeURIComponent(userEmail)}&flowName=GlifWebSignIn&flowEntry=ServiceLogin`;
+        
+        const authWindow = window.open(authUrl, 'google-auth', 'width=500,height=600');
+        
+        // 監控視窗狀態
+        const checkClosed = setInterval(() => {
+            if (authWindow.closed) {
+                clearInterval(checkClosed);
+                log('授權視窗已關閉，假設授權完成');
+                // 等待 2 秒讓 session 建立，然後完成登入
+                setTimeout(() => {
+                    completeDesktopLogin();
+                }, 2000);
+            }
+        }, 1000);
+    };
+    
+    updateStatus('Google API 載入失敗，請點擊按鈕手動完成授權', 'waiting');
 }
 
-// 新增：設置手動 Google 授權按鈕
+// 修正：設置手動 Google 授權按鈕
 function setupManualGoogleAuth(userEmail) {
+    log('設置手動授權按鈕');
+    
     const openGoogleBtn = document.getElementById('openGoogleBtn');
     openGoogleBtn.textContent = "完成 Google 授權";
     openGoogleBtn.disabled = false;
@@ -347,8 +405,18 @@ function setupManualGoogleAuth(userEmail) {
         openGoogleBtn.textContent = "授權中...";
         openGoogleBtn.disabled = true;
         
-        // 觸發 Google 登入
-        window.google.accounts.id.prompt();
+        try {
+            // 嘗試觸發 Google 登入
+            google.accounts.id.prompt((notification) => {
+                if (notification.isNotDisplayed()) {
+                    log('手動 prompt 也失敗，使用備案方案');
+                    setupFallbackAuth(userEmail);
+                }
+            });
+        } catch (error) {
+            log(`手動授權失敗: ${error.message}`);
+            setupFallbackAuth(userEmail);
+        }
     };
     
     updateStatus('請點擊按鈕完成 Google 授權以建立桌面會話', 'waiting');
@@ -356,7 +424,17 @@ function setupManualGoogleAuth(userEmail) {
 
 // 修正：處理桌面端 Google 回應
 function handleDesktopGoogleResponse(response) {
-    log('桌面端 Google 授權成功');
+    log('收到桌面端 Google 授權回應');
+    log(`回應內容: ${JSON.stringify({credential: response.credential ? '有憑證' : '無憑證'})}`);
+    
+    if (response.credential) {
+        log('桌面端 Google 授權成功，解析憑證');
+        const payload = parseJwt(response.credential);
+        if (payload) {
+            log(`桌面端授權用戶: ${payload.email}`);
+        }
+    }
+    
     completeDesktopLogin();
 }
 
@@ -498,21 +576,46 @@ function completeDesktopLogin() {
             listenForAuthToken(sessionId);
         }
 
-        // 頁面載入完成後執行
-        window.onload = function() {
+// 修改現有的 window.onload 函數
+window.onload = function() {
+    // 檢查 Google API 是否載入
+    checkGoogleAPIAndInitialize();
+    
+    document.getElementById('showDebugBtn').addEventListener('click', function() {
+        const debugElement = document.getElementById('debug');
+        if (debugElement.style.display === 'none') {
+            debugElement.style.display = 'block';
+            this.textContent = '隱藏除錯資訊';
+        } else {
+            debugElement.style.display = 'none';
+            this.textContent = '顯示除錯資訊';
+        }
+    });
+};
+
+// 新增：檢查 Google API 並初始化
+function checkGoogleAPIAndInitialize() {
+    let checkCount = 0;
+    const maxChecks = 50; // 最多檢查5秒
+    
+    function checkAPI() {
+        checkCount++;
+        log(`檢查 Google API 載入狀態 (第 ${checkCount} 次)`);
+        
+        if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+            log('Google API 載入成功');
             initializePage();
-            
-            document.getElementById('showDebugBtn').addEventListener('click', function() {
-                const debugElement = document.getElementById('debug');
-                if (debugElement.style.display === 'none') {
-                    debugElement.style.display = 'block';
-                    this.textContent = '隱藏除錯資訊';
-                } else {
-                    debugElement.style.display = 'none';
-                    this.textContent = '顯示除錯資訊';
-                }
-            });
-        };
+        } else if (checkCount < maxChecks) {
+            log('Google API 尚未載入，100ms 後重試...');
+            setTimeout(checkAPI, 100);
+        } else {
+            log('Google API 載入失敗，使用簡化模式');
+            initializePage();
+        }
+    }
+    
+    checkAPI();
+}
     </script>
 </body>
 </html>
