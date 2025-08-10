@@ -468,39 +468,77 @@ function usePopupOAuth(userEmail) {
     });
 }
 
-// 修正：完成桌面端登入設置
+// 全新方案：使用 iframe 嵌入已授權的 Google 服務
 function completeDesktopLogin() {
-    updateStatus(`登入成功！現在可以直接存取 Google 服務`, 'success');
+    updateStatus(`登入驗證成功！正在載入 Google 服務...`, 'success');
     
-    // 確保區塊顯示
-    document.getElementById('welcome-message').style.display = 'block';
-    document.getElementById('user-actions').style.display = 'block';
+    // 隱藏原本的按鈕區域
+    document.getElementById('welcome-message').style.display = 'none';
     
-    // 更新歡迎訊息
-    const welcomeMsg = document.querySelector('#welcome-message');
-    welcomeMsg.innerHTML = `
-        <h3>登入成功！</h3>
-        <p>桌面端 Google 會話已建立！您現在可以直接存取 Google 服務。</p>
+    // 建立 Google 服務整合面板
+    const servicePanel = document.createElement('div');
+    servicePanel.id = 'google-services-panel';
+    servicePanel.innerHTML = `
+        <h3>Google 服務直接存取</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin: 20px 0;">
+            <button onclick="openGoogleInIframe('https://myaccount.google.com/')" style="background: #4285f4;">我的帳戶</button>
+            <button onclick="openGoogleInIframe('https://mail.google.com/')" style="background: #db4437;">Gmail</button>
+            <button onclick="openGoogleInIframe('https://drive.google.com/')" style="background: #0f9d58;">Drive</button>
+            <button onclick="openGoogleInIframe('https://photos.google.com/')" style="background: #f4b400;">相簿</button>
+            <button onclick="openGoogleInIframe('https://calendar.google.com/')" style="background: #4285f4;">日曆</button>
+        </div>
+        <div id="google-iframe-container" style="width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; display: none;">
+            <div style="background: #f8f9fa; padding: 10px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+                <span id="current-service-title">Google 服務</span>
+                <button onclick="closeGoogleIframe()" style="background: #dc3545; padding: 5px 10px;">關閉</button>
+            </div>
+            <iframe id="google-service-iframe" src="" style="width: 100%; height: calc(100% - 50px); border: none;"></iframe>
+        </div>
     `;
     
-    // *** 重新創建並設置按鈕 ***
-    const buttonContainer = document.createElement('div');
-    buttonContainer.innerHTML = `
-        <button id="openGoogleBtn">開啟 Google 帳戶</button>
-        <button onclick="window.open('https://mail.google.com/', '_blank')">開啟 Gmail</button>
-        <button onclick="window.open('https://drive.google.com/', '_blank')">開啟 Google Drive</button>
-    `;
-    welcomeMsg.appendChild(buttonContainer);
+    document.getElementById('user-profile').appendChild(servicePanel);
     
-    // 設置主按鈕功能
-    document.getElementById('openGoogleBtn').onclick = () => {
-        log('開啟 Google 帳戶頁面');
-        window.open('https://myaccount.google.com/', '_blank');
-    };
-    
-    log("桌面端 Google 會話建立完成，所有按鈕已設置");
+    log("Google 服務整合面板已建立");
 }
 
+// 新增：在 iframe 中開啟 Google 服務
+function openGoogleInIframe(url) {
+    log(`在 iframe 中開啟: ${url}`);
+    
+    const container = document.getElementById('google-iframe-container');
+    const iframe = document.getElementById('google-service-iframe');
+    const title = document.getElementById('current-service-title');
+    
+    // 設置服務名稱
+    const serviceName = {
+        'myaccount.google.com': 'Google 我的帳戶',
+        'mail.google.com': 'Gmail',
+        'drive.google.com': 'Google Drive',
+        'photos.google.com': 'Google 相簿',
+        'calendar.google.com': 'Google 日曆'
+    };
+    
+    const domain = new URL(url).hostname;
+    title.textContent = serviceName[domain] || 'Google 服務';
+    
+    // 載入服務
+    iframe.src = url;
+    container.style.display = 'block';
+    
+    // 滾動到 iframe
+    container.scrollIntoView({ behavior: 'smooth' });
+}
+
+// 新增：關閉 iframe
+function closeGoogleIframe() {
+    const container = document.getElementById('google-iframe-container');
+    const iframe = document.getElementById('google-service-iframe');
+    
+    container.style.display = 'none';
+    iframe.src = '';
+    
+    log("已關閉 Google 服務 iframe");
+}
         // 解析 JWT (無需修改)
         function parseJwt(token) {
             try {
