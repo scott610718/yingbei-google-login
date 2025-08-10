@@ -468,76 +468,84 @@ function usePopupOAuth(userEmail) {
     });
 }
 
-// 全新方案：使用 iframe 嵌入已授權的 Google 服務
+// 終極方案：直接跳轉到 Google 服務並嘗試保持會話
 function completeDesktopLogin() {
-    updateStatus(`登入驗證成功！正在載入 Google 服務...`, 'success');
+    updateStatus(`登入驗證成功！`, 'success');
     
-    // 隱藏原本的按鈕區域
-    document.getElementById('welcome-message').style.display = 'none';
-    
-    // 建立 Google 服務整合面板
+    // 建立服務選擇面板
     const servicePanel = document.createElement('div');
-    servicePanel.id = 'google-services-panel';
     servicePanel.innerHTML = `
-        <h3>Google 服務直接存取</h3>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin: 20px 0;">
-            <button onclick="openGoogleInIframe('https://myaccount.google.com/')" style="background: #4285f4;">我的帳戶</button>
-            <button onclick="openGoogleInIframe('https://mail.google.com/')" style="background: #db4437;">Gmail</button>
-            <button onclick="openGoogleInIframe('https://drive.google.com/')" style="background: #0f9d58;">Drive</button>
-            <button onclick="openGoogleInIframe('https://photos.google.com/')" style="background: #f4b400;">相簿</button>
-            <button onclick="openGoogleInIframe('https://calendar.google.com/')" style="background: #4285f4;">日曆</button>
+        <h3>選擇要存取的 Google 服務</h3>
+        <p style="color: #666;">已驗證身份：${googleUserInfo.email}</p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">
+            <button onclick="accessGoogleService('myaccount')" class="service-btn">
+                <strong>我的帳戶</strong><br>
+                <small>管理 Google 帳戶設定</small>
+            </button>
+            <button onclick="accessGoogleService('gmail')" class="service-btn">
+                <strong>Gmail</strong><br>
+                <small>查看和傳送電子郵件</small>
+            </button>
+            <button onclick="accessGoogleService('drive')" class="service-btn">
+                <strong>Google Drive</strong><br>
+                <small>存取雲端檔案</small>
+            </button>
+            <button onclick="accessGoogleService('photos')" class="service-btn">
+                <strong>Google 相簿</strong><br>
+                <small>查看和管理相片</small>
+            </button>
         </div>
-        <div id="google-iframe-container" style="width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; display: none;">
-            <div style="background: #f8f9fa; padding: 10px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
-                <span id="current-service-title">Google 服務</span>
-                <button onclick="closeGoogleIframe()" style="background: #dc3545; padding: 5px 10px;">關閉</button>
-            </div>
-            <iframe id="google-service-iframe" src="" style="width: 100%; height: calc(100% - 50px); border: none;"></iframe>
+        <div style="margin-top: 20px;">
+            <button onclick="logout()" style="background: #6c757d;">重新開始</button>
         </div>
     `;
     
+    // 添加服務按鈕樣式
+    const style = document.createElement('style');
+    style.textContent = `
+        .service-btn {
+            padding: 20px;
+            text-align: left;
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .service-btn:hover {
+            border-color: #4285f4;
+            box-shadow: 0 4px 12px rgba(66,133,244,0.15);
+        }
+    `;
+    document.head.appendChild(style);
+    
     document.getElementById('user-profile').appendChild(servicePanel);
     
-    log("Google 服務整合面板已建立");
+    log("服務選擇面板已建立");
 }
 
-// 新增：在 iframe 中開啟 Google 服務
-function openGoogleInIframe(url) {
-    log(`在 iframe 中開啟: ${url}`);
-    
-    const container = document.getElementById('google-iframe-container');
-    const iframe = document.getElementById('google-service-iframe');
-    const title = document.getElementById('current-service-title');
-    
-    // 設置服務名稱
-    const serviceName = {
-        'myaccount.google.com': 'Google 我的帳戶',
-        'mail.google.com': 'Gmail',
-        'drive.google.com': 'Google Drive',
-        'photos.google.com': 'Google 相簿',
-        'calendar.google.com': 'Google 日曆'
+// 新增：存取 Google 服務
+function accessGoogleService(service) {
+    const services = {
+        'myaccount': 'https://myaccount.google.com/',
+        'gmail': 'https://mail.google.com/',
+        'drive': 'https://drive.google.com/',
+        'photos': 'https://photos.google.com/'
     };
     
-    const domain = new URL(url).hostname;
-    title.textContent = serviceName[domain] || 'Google 服務';
+    const baseUrl = services[service];
+    if (!baseUrl) return;
     
-    // 載入服務
-    iframe.src = url;
-    container.style.display = 'block';
+    // 嘗試攜帶用戶提示參數
+    const urlWithHint = `${baseUrl}?authuser=${encodeURIComponent(googleUserInfo.email)}`;
     
-    // 滾動到 iframe
-    container.scrollIntoView({ behavior: 'smooth' });
-}
-
-// 新增：關閉 iframe
-function closeGoogleIframe() {
-    const container = document.getElementById('google-iframe-container');
-    const iframe = document.getElementById('google-service-iframe');
+    log(`開啟 Google ${service}: ${urlWithHint}`);
     
-    container.style.display = 'none';
-    iframe.src = '';
+    // 開啟新分頁
+    window.open(urlWithHint, '_blank');
     
-    log("已關閉 Google 服務 iframe");
+    // 更新狀態提示
+    updateStatus(`已開啟 ${service.toUpperCase()}，如需登入請使用：${googleUserInfo.email}`, 'info');
 }
         // 解析 JWT (無需修改)
         function parseJwt(token) {
