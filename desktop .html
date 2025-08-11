@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>電腦端 - Google 整合應用 (最佳化版)</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 90vh;
+        }
+        #qrcode-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        #qrcode {
+            margin: 20px 0;
+            border: 1px solid #eee;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 12px 20px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 500px;
+            box-sizing: border-box;
+        }
+        .waiting {
+            background-color: #e9ecef;
+            border-left: 5px solid #6c757d;
+        }
+        .success {
+            background-color: #d1e7dd;
+            color: #0f5132;
+            border-left: 5px solid #198754;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #842029;
+            border-left: 5px solid #dc3545;
+        }
+        .info {
+            background-color: #cff4fc;
+            color: #055160;
+            border-left: 5px solid #0dcaf0;
+        }
+        button {
+            padding: 12px 25px;
+            background-image: linear-gradient(to right, #4285f4 0%, #34a853 51%, #fbbc05 100%);
+            background-size: 200% auto;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: 0.5s;
+            font-weight: bold;
+        }
+        button:hover {
+            background-position: right center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        button:disabled {
+            background-image: none;
+            background-color: #cccccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .google-services {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        .google-services button {
+            padding: 10px 20px;
+            font-size: 14px;
+            min-width: 120px;
+        }
+        #debug {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #212529;
+            color: #f8f9fa;
+            border: 1px solid #ddd;
+            text-align: left;
+            font-family: monospace;
+            width: 100%;
+            max-height: 150px;
+            overflow-y: auto;
+            display: none;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        .user-profile {
+            display: none;
+            margin: 20px 0;
+            text-align: center;
+            padding: 20px;
+            background-color: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        .profile-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin-bottom: 10px;
+            border: 3px solid #fbbc05;
+        }
+        #welcome-message {
+            display: none;
+        }
+        #user-actions {
+            margin-top: 20px;
+            display:none;
+        }
+        #logoutBtn {
+            background-image: linear-gradient(to right, #6c757d 0%, #343a40 51%, #6c757d 100%);
+        }
+        .account-hint {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .account-hint h4 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+        }
+        .account-hint .account-info {
+            background: rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .account-hint .account-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        .account-hint .account-details {
+            flex: 1;
+            text-align: left;
+        }
+        .account-hint .account-name {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        .account-hint .account-email {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .steps-guide {
+            background-color: #f8f9fa;
+            border: 2px dashed #6c757d;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .steps-guide h4 {
+            margin: 0 0 15px 0;
+            color: #495057;
+            text-align: center;
+        }
+        .step {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .step-number {
+            background: #007bff;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        .step-text {
+            flex: 1;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .highlight {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>電腦端 - Google 整合應用 (最佳化版)</h1>
+        <div id="statusContainer" class="status waiting">
+            <p id="statusMessage">正在初始化...</p>
+        </div>
+
+        <!-- 初始畫面：QR Code 掃描區 -->
+        <div id="qrcode-container">
+            <div id="qrcode"></div>
+        </div>
+
+        <!-- 登入成功後顯示的整合區塊 -->
+        <div id="user-profile" class="user-profile">
+            <img id="profile-image" class="profile-image" src="" alt="用戶頭像">
+            <h2 id="user-name">用戶名稱</h2>
+            <p id="user-email">用戶郵箱</p>
+
+            <div id="welcome-message">
+                <h3>登入成功！</h3>
+                
+                <!-- 帳號提示區塊 -->
+                <div class="account-hint">
+                    <h4>🎯 請記住您的登入帳號</h4>
+                    <div class="account-info">
+                        <img id="hint-avatar" class="account-avatar" src="" alt="帳號頭像">
+                        <div class="account-details">
+                            <div id="hint-name" class="account-name">用戶名稱</div>
+                            <div id="hint-email" class="account-email">用戶郵箱</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 操作步驟指引 -->
+                <div class="steps-guide">
+                    <h4>📋 操作步驟</h4>
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-text">點擊下方任一 Google 服務按鈕</div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-text">在新開啟的分頁中，選擇 <span class="highlight" id="step-email-hint">您的帳號</span></div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-text">如果沒有看到您的帳號，請點擊「使用其他帳戶」</div>
+                    </div>
+                </div>
+
+                <!-- Google 服務快速連結 -->
+                <div class="google-services">
+                    <button id="openGoogleBtn" class="pulse">Google 首頁</button>
+                    <button id="openGmailBtn">Gmail</button>
+                    <button id="openDriveBtn">Google Drive</button>
+                    <button id="openCalendarBtn">Google 日曆</button>
+                    <button id="openPhotosBtn">Google 相簿</button>
+                    <button id="openDocsBtn">Google 文件</button>
+                </div>
+            </div>
+
+            <div id="user-actions">
+                <button id="logoutBtn" onclick="logout()">登出</button>
+            </div>
+        </div>
+
+        <button id="showDebugBtn" style="margin-top: 20px; background: #6c757d;">顯示除錯資訊</button>
+        <div id="debug"></div>
+    </div>
+
+    <script>
+        // Firebase 配置 (請確保與 mobile.html 一致)
+        const firebaseConfig = {
+            apiKey: "AIzaSyArF8xncLwA3osSQ_o6yWIyuOc0TMrXRTY",
+            authDomain: "yingpei--login.firebaseapp.com",
+            databaseURL: "https://yingpei--login-default-rtdb.firebaseio.com",
+            projectId: "yingpei--login",
+            storageBucket: "yingpei--login.firebasestorage.app",
+            messagingSenderId: "261477282402",
+            appId: "1:261477282402:web:557f0be058e07cd642173b",
+            measurementId: "G-EB9PR17TJL"
+        };
+
+        // 初始化 Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // 全局變數
+        let googleUserInfo = null;
+        let sessionListener = null;
+
+        // 紀錄除錯資訊
+        function log(message) {
+            const debugElement = document.getElementById('debug');
+            const time = new Date().toLocaleTimeString();
+            debugElement.innerHTML += `<div><span style="color: #8c8c8c;">[${time}]</span> ${message}</div>`;
+            debugElement.scrollTop = debugElement.scrollHeight;
+            console.log(message);
+        }
+
+        // 生成唯一會話 ID
+        function generateSessionId() {
+            return 'session_' + Date.now() + Math.random().toString(36).substring(2, 15);
+        }
+
+        // 生成 QR Code
+        function generateQRCode(text) {
+            try {
+                const typeNumber = 0;
+                const errorCorrectionLevel = 'L';
+                const qr = qrcode(typeNumber, errorCorrectionLevel);
+                qr.addData(text);
+                qr.make();
+                document.getElementById('qrcode').innerHTML = qr.createImgTag(8, 8);
+                log("QR Code 已成功生成。");
+            } catch (error) {
+                log(`QR Code 生成失敗: ${error.message}`);
+                updateStatus('QR Code 生成失敗，請刷新頁面重試。', 'error');
+            }
+        }
+
+        // 更新狀態消息
+        function updateStatus(message, type) {
+            const statusContainer = document.getElementById('statusContainer');
+            const statusMessage = document.getElementById('statusMessage');
+
+            statusMessage.textContent = message;
+            statusContainer.className = `status ${type}`;
+            log(`狀態更新: ${message}`);
+        }
+
+        // 監聽 Firebase 數據變化
+        function listenForAuthToken(sessionId) {
+            const sessionRef = database.ref('sessions/' + sessionId);
+            log(`開始監聽 Firebase 路徑: sessions/${sessionId}`);
+
+            database.ref('.info/connected').on('value', (snap) => {
+                log(snap.val() ? '已連接到 Firebase' : '與 Firebase 連線中斷');
+            });
+
+            sessionListener = sessionRef.on('value', (snapshot) => {
+                if (!snapshot.exists()) {
+                    log('Firebase 回調無數據或已被清除。');
+                    return;
+                }
+
+                log(`收到 Firebase 事件`);
+                const data = snapshot.val();
+
+                if (data && data.credential) {
+                    log(`成功接收到 Google 憑證`);
+                    updateStatus('憑證接收成功！正在驗證使用者資訊...', 'success');
+                    
+                    handleGoogleSignIn(data.credential);
+                    
+                    sessionRef.off('value', sessionListener);
+                    sessionRef.remove().then(() => {
+                        log('已刪除 Firebase 中的 session 數據');
+                    }).catch(error => {
+                        log(`刪除 session 數據時出錯: ${error.message}`);
+                    });
+
+                } else {
+                    log('收到的數據中沒有 "credential" 欄位');
+                }
+            }, (error) => {
+                log(`Firebase 監聽失敗: ${error.message}`);
+                updateStatus('與伺服器通訊失敗，請檢查網路連線。', 'error');
+            });
+        }
+
+        // 處理 Google 登入
+        function handleGoogleSignIn(credential) {
+            log('開始處理 Google 登入');
+            
+            const payload = parseJwt(credential);
+            if (payload) {
+                log(`成功解析 JWT，使用者: ${payload.name}`);
+                
+                googleUserInfo = {
+                    name: payload.name,
+                    email: payload.email,
+                    picture: payload.picture,
+                    id: payload.sub
+                };
+                
+                displayUserProfile(googleUserInfo);
+                
+            } else {
+                log('JWT 解析失敗');
+                updateStatus('處理 Google 登入憑證失敗', 'error');
+            }
+        }
+
+        // 解析 JWT
+        function parseJwt(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                return JSON.parse(jsonPayload);
+            } catch (error) {
+                log(`解析 JWT 出錯: ${error.message}`);
+                return null;
+            }
+        }
+
+        // 生成最佳化的 Google URL
+        function generateOptimizedGoogleUrl(service) {
+            const serviceUrls = {
+                'google': 'https://www.google.com',
+                'gmail': 'https://mail.google.com',
+                'drive': 'https://drive.google.com',
+                'calendar': 'https://calendar.google.com',
+                'photos': 'https://photos.google.com',
+                'docs': 'https://docs.google.com'
+            };
+            
+            const targetUrl = serviceUrls[service] || 'https://www.google.com';
+            
+            // 使用 Google 的帳號選擇器，並指定目標服務
+            return `https://accounts.google.com/AccountChooser?continue=${encodeURIComponent(targetUrl)}`;
+        }
+
+        // 開啟 Google 服務的通用函數
+        function openGoogleService(serviceName, serviceKey) {
+            log(`正在開啟 ${serviceName}`);
+            
+            // 顯示操作提示
+            updateStatus(`正在開啟 ${serviceName}，請在新分頁中選擇您的帳號`, 'info');
+            
+            // 生成最佳化的 URL
+            const optimizedUrl = generateOptimizedGoogleUrl(serviceKey);
+            
+            // 開啟新分頁
+            window.open(optimizedUrl, '_blank');
+            
+            // 3秒後恢復原狀態訊息
+            setTimeout(() => {
+                updateStatus(`歡迎您，${googleUserInfo.name}！`, 'success');
+            }, 3000);
+        }
+
+        // 顯示用戶資訊並設定後續操作
+        function displayUserProfile(userData) {
+            // 隱藏 QR Code，顯示用戶資訊卡片
+            document.getElementById('qrcode-container').style.display = 'none';
+            document.getElementById('user-profile').style.display = 'block';
+            document.getElementById('welcome-message').style.display = 'block';
+            document.getElementById('user-actions').style.display = 'block';
+
+            // 填入用戶資訊
+            document.getElementById('profile-image').src = userData.picture || `https://placehold.co/80x80/fbbc05/FFFFFF?text=${userData.name.charAt(0)}`;
+            document.getElementById('user-name').textContent = userData.name;
+            document.getElementById('user-email').textContent = userData.email;
+            
+            // 填入提示區塊的資訊
+            document.getElementById('hint-avatar').src = userData.picture || `https://placehold.co/50x50/fbbc05/FFFFFF?text=${userData.name.charAt(0)}`;
+            document.getElementById('hint-name').textContent = userData.name;
+            document.getElementById('hint-email').textContent = userData.email;
+            document.getElementById('step-email-hint').textContent = userData.email;
+
+            updateStatus(`歡迎您，${userData.name}！`, 'success');
+
+            // 設定各個 Google 服務按鈕
+            document.getElementById('openGoogleBtn').onclick = () => {
+                openGoogleService('Google 首頁', 'google');
+            };
+
+            document.getElementById('openGmailBtn').onclick = () => {
+                openGoogleService('Gmail', 'gmail');
+            };
+
+            document.getElementById('openDriveBtn').onclick = () => {
+                openGoogleService('Google Drive', 'drive');
+            };
+
+            document.getElementById('openCalendarBtn').onclick = () => {
+                openGoogleService('Google 日曆', 'calendar');
+            };
+
+            document.getElementById('openPhotosBtn').onclick = () => {
+                openGoogleService('Google 相簿', 'photos');
+            };
+
+            document.getElementById('openDocsBtn').onclick = () => {
+                openGoogleService('Google 文件', 'docs');
+            };
+
+            log("Google 服務按鈕已全部啟用。");
+        }
+
+        // 登出功能
+        function logout() {
+            log('用戶登出');
+            
+            googleUserInfo = null;
+            
+            document.getElementById('user-profile').style.display = 'none';
+            document.getElementById('qrcode-container').style.display = 'block';
+
+            initializePage();
+        }
+
+        // 初始化頁面
+        function initializePage() {
+            const sessionId = generateSessionId();
+            const qrData = JSON.stringify({
+                sessionId: sessionId,
+                action: 'googleAuth'
+            });
+            
+            log(`初始化頁面，產生 sessionId: ${sessionId}`);
+            generateQRCode(qrData);
+            updateStatus('請使用手機掃描 QR Code 以進行 Google 授權', 'waiting');
+            listenForAuthToken(sessionId);
+        }
+
+        // 頁面載入完成後執行
+        window.onload = function() {
+            initializePage();
+            
+            document.getElementById('showDebugBtn').addEventListener('click', function() {
+                const debugElement = document.getElementById('debug');
+                if (debugElement.style.display === 'none') {
+                    debugElement.style.display = 'block';
+                    this.textContent = '隱藏除錯資訊';
+                } else {
+                    debugElement.style.display = 'none';
+                    this.textContent = '顯示除錯資訊';
+                }
+            });
+        };
+    </script>
+</body>
+</html>
+
